@@ -385,7 +385,7 @@ public class DomainEntity extends Entity {
         announce(server);
 
         if (buildComplete) {
-            if (kind.hasCrimsonSlash() && lifeTicks % CrimsonSlash.INTERVAL_TICKS == 0) {
+            if (kind.hasCrimsonSlash()) {
                 crimsonSlashStep(server);
             }
             if (kind.hasSlashStreaks()) {
@@ -870,15 +870,20 @@ public class DomainEntity extends Entity {
     // ------------------------------------------------------------------
 
     /**
-     * Cuts everything inside that is not the caster, once per interval - five times a second.
+     * Cuts everything inside that is not the caster.
+     *
+     * Runs every tick, applying one strike per victim - two on every other tick - which is
+     * thirty a second. Not every fourth tick any more: thirty is not a whole number of ticks, so
+     * the rate is built out of the two-tick pattern in {@link CrimsonSlash#hitsForTick}.
      *
      * Runs off the same containment test as the barrier, so "inside" means the same thing to
      * both. Each victim is struck individually rather than all at once, because the strike
      * clears that victim's hurt cooldown immediately before damaging them: a shared hit would
      * put every entity in the sphere on the same invulnerability timer and collapse the rate.
      *
-     * See {@link CrimsonSlash} for why the damage carries no attacker, and why the visual is a
-     * real Blood Slash projectile with its damage zeroed.
+     * See {@link CrimsonSlash} for why the damage carries no attacker, why the visual is a real
+     * Blood Slash projectile with its damage zeroed, and why only some of the strikes are
+     * allowed to make a sound.
      */
     private void crimsonSlashStep(ServerLevel server) {
         Entity ownerEntity = ownerUuid != null ? server.getEntity(ownerUuid) : null;
@@ -911,15 +916,20 @@ public class DomainEntity extends Entity {
             return;
         }
 
+        int hits = CrimsonSlash.hitsForTick(lifeTicks);
+        boolean audibleTick = lifeTicks % CrimsonSlash.AUDIBLE_EVERY_TICKS == 0;
         float damage = CrimsonSlash.damage(spellLevel, caster);
         for (LivingEntity victim : victims) {
-            CrimsonSlash.strike(server, victim, damage);
-            slashHits++;
-            if (slashVisuals.size() < CrimsonSlash.MAX_LIVE_VISUALS) {
-                slashVisuals.add(new SlashVisual(
-                        CrimsonSlash.spawnVisual(server, caster, victim), lifeTicks));
-            } else {
-                slashVisualsSkipped++;
+            for (int hit = 0; hit < hits; hit++) {
+                // one sound per audible tick across all of them, not one per blow
+                CrimsonSlash.strike(server, victim, damage, audibleTick && hit == 0);
+                slashHits++;
+                if (slashVisuals.size() < CrimsonSlash.MAX_LIVE_VISUALS) {
+                    slashVisuals.add(new SlashVisual(
+                            CrimsonSlash.spawnVisual(server, caster, victim), lifeTicks));
+                } else {
+                    slashVisualsSkipped++;
+                }
             }
         }
     }

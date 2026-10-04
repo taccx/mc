@@ -10,7 +10,10 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * The crimson domain's automatic attack: 猩红斩击, Iron's Spellbooks' Blood Slash, applied
- * directly to everything inside that is not the caster, five times a second.
+ * directly to everything inside that is not the caster, thirty times a second.
+ *
+ * The rate began at five a second and was raised once Blood Slash turned out to hit for very
+ * little; see {@link #HITS_PER_TICK} for how thirty a second is built out of twenty ticks.
  *
  * Three things about this are deliberate and worth keeping in mind.
  *
@@ -46,8 +49,33 @@ public final class CrimsonSlash {
      */
     public static final int LEVEL_BONUS = 2;
 
-    /** Four ticks between strikes: five a second. */
-    public static final int INTERVAL_TICKS = 4;
+    /**
+     * How often the slash lands.
+     *
+     * Thirty times a second was asked for, after Blood Slash turned out to hit for very little.
+     * Thirty is not a whole number of ticks - a second is twenty - so it is built as one strike
+     * every tick plus one more on every other tick, which averages 1.5 a tick and is exactly
+     * thirty a second. {@link #hitsForTick} is that rule, kept as arithmetic so it can be
+     * tested rather than counted by hand.
+     */
+    public static final int HITS_PER_TICK = 1;
+
+    /** One extra strike on every Nth tick. Two, which is what turns 1 into 1.5. */
+    public static final int EXTRA_HIT_EVERY_TICKS = 2;
+
+    /** The resulting rate, for the scroll text and the log. */
+    public static final double HITS_PER_SECOND =
+            20.0D * (HITS_PER_TICK + 1.0D / EXTRA_HIT_EVERY_TICKS);
+
+    /**
+     * One strike in this many is allowed to make a sound.
+     *
+     * Every strike plays the victim's hurt sound, and thirty a second is not a sound effect, it
+     * is a buzzsaw. The rest are applied with the victim silenced for the instant of the blow,
+     * which is a server-side flag and does not reach the client, so nothing else about the
+     * entity is affected. Two a second is enough to hear that something is happening.
+     */
+    public static final int AUDIBLE_EVERY_TICKS = 10;
 
     /**
      * How many slash visuals may exist at once.
@@ -89,6 +117,12 @@ public final class CrimsonSlash {
         return Math.max(1, Math.min(domainLevel + LEVEL_BONUS, slashMaxLevel));
     }
 
+    /** How many strikes land on a given domain tick. One, or two on every other tick. */
+    public static int hitsForTick(int domainTick) {
+        return HITS_PER_TICK
+                + (Math.floorMod(domainTick, EXTRA_HIT_EVERY_TICKS) == 0 ? 1 : 0);
+    }
+
     /**
      * One strike's damage, taken from the Blood Slash spell itself so the scaling - including
      * the caster's spell power - is exactly what casting it would have produced at that level.
@@ -107,13 +141,28 @@ public final class CrimsonSlash {
         return spell.getSpellPower(level, caster);
     }
 
-    /** Applies one strike, clearing the hurt cooldown so the five-per-second rate actually lands. */
-    public static void strike(ServerLevel server, LivingEntity victim, float damage) {
+    /**
+     * Applies one strike, clearing the hurt cooldown so the rate actually lands.
+     *
+     * @param audible whether this one is allowed to play the victim's hurt sound; see
+     *                {@link #AUDIBLE_EVERY_TICKS}
+     */
+    public static void strike(ServerLevel server, LivingEntity victim, float damage, boolean audible) {
         if (damage <= 0.0F || !victim.isAlive()) {
             return;
         }
         victim.invulnerableTime = 0;
-        victim.hurt(server.damageSources().magic(), damage);
+        if (audible) {
+            victim.hurt(server.damageSources().magic(), damage);
+            return;
+        }
+        boolean wasSilent = victim.isSilent();
+        victim.setSilent(true);
+        try {
+            victim.hurt(server.damageSources().magic(), damage);
+        } finally {
+            victim.setSilent(wasSilent);
+        }
     }
 
     /**
