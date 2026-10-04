@@ -5,6 +5,8 @@
   "ui.domain_expansion.duration": "Duration: %s",
   "ui.domain_expansion.domain_main": "Unfolds an abyssal domain that seals everything within",
   "ui.domain_expansion.forced_hit": "Attacks inside always land",
+  "ui.domain_expansion.overflow_level": "Casts Overflow at level %s (wetness %s-%s)",
+  "ui.domain_expansion.rainfall_level": "Casts Rainfall at level %s (wetness %s)",
   "ui.domain_expansion.overflow_rainfall": "Maintains Overflow and Rainfall",
   "domain_expansion.title.name": "Domain Expansion",
   "domain_expansion.title.epithet": "Deep Sea Reef",

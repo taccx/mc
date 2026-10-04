@@ -97,8 +97,20 @@ public class DomainExpansionSpell extends AbstractSpell {
         super.onCast(level, spellLevel, entity, castSource, playerMagicData);
     }
 
+    /**
+     * The lines a scroll shows for this spell.
+     *
+     * The support spells are listed with the level they actually run at, which is one above the
+     * domain and therefore not obvious from the spell's own level. Their wet-effect amplifiers
+     * are included too, since that is what those levels translate into in practice: a level 3
+     * domain runs a level 4 Overflow, which is its maximum.
+     */
     @Override
     public List<MutableComponent> getUniqueInfo(int spellLevel, LivingEntity caster) {
+        int supportLevel = SupportSpells.levelFor(spellLevel);
+        int[] overflowWet = SupportSpells.overflowWetRange(spellLevel, caster);
+        int rainfallWet = SupportSpells.rainfallWet(spellLevel, caster);
+
         return List.of(
                 Component.translatable("ui.domain_expansion.domain_main"),
                 Component.translatable("ui.domain_expansion.radius",
@@ -106,7 +118,10 @@ public class DomainExpansionSpell extends AbstractSpell {
                 Component.translatable("ui.domain_expansion.duration",
                         Utils.timeFromTicks(DomainConfig.DOMAIN_DURATION_TICKS, 2)),
                 Component.translatable("ui.domain_expansion.forced_hit"),
-                Component.translatable("ui.domain_expansion.overflow_rainfall"));
+                Component.translatable("ui.domain_expansion.overflow_level",
+                        supportLevel, overflowWet[0], overflowWet[1]),
+                Component.translatable("ui.domain_expansion.rainfall_level",
+                        supportLevel, rainfallWet));
     }
 
     @Override

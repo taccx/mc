@@ -6,6 +6,7 @@ import com.dsh.domainexpansion.domain.Guidance;
 import com.dsh.domainexpansion.domain.SphereShape;
 import com.dsh.domainexpansion.registry.ModBlocks;
 import com.dsh.domainexpansion.registry.ModEntities;
+import com.dsh.domainexpansion.spell.SupportSpells;
 import com.gametechbc.traveloptics.entity.projectiles.RainfallAoe;
 import com.gametechbc.traveloptics.entity.projectiles.overflow.FloodPoolEntity;
 import com.gametechbc.traveloptics.util.TravelopticsParticleHelper;
@@ -872,6 +873,10 @@ public class DomainEntity extends Entity {
      * Keeps Overflow and Rainfall up for the whole domain. A direct reference is held and
      * the entity is only replaced once it is genuinely gone; testing "is it alive" was
      * false for an entity that had just been added, which spawned a new pair every tick.
+     *
+     * Both are configured by {@link SupportSpells}, which reproduces what those two spells
+     * would produce if cast one level above the domain - the level relationship was asked for
+     * explicitly - while forcing their durations to match the domain's.
      */
     private void maintainSupportSpells(ServerLevel server) {
         Entity ownerEntity = ownerUuid != null ? server.getEntity(ownerUuid) : null;
@@ -880,30 +885,22 @@ public class DomainEntity extends Entity {
         }
 
         if (overflow == null || overflow.isRemoved()) {
-            overflow = new FloodPoolEntity(server);
-            overflow.setOwner(caster);
-            overflow.setRadius(5.0F + spellLevel * 5.0F);
-            overflow.setDuration(DomainConfig.DOMAIN_DURATION_TICKS);
-            overflow.setCircular();
-            overflow.setPos(center().x, center().y, center().z);
+            overflow = SupportSpells.createOverflow(server, caster, spellLevel);
             server.addFreshEntity(overflow);
-            // logged because the support spells are otherwise invisible in a log, and their
-            // absence would be indistinguishable from a working domain in every other line
-            LOGGER.info("[DomainExpansion] overflow active at t={}s radius={} level={}",
-                    lifeTicks / 20, overflow.getRadius(), spellLevel);
+            int[] wet = SupportSpells.overflowWetRange(spellLevel, caster);
+            LOGGER.info("[DomainExpansion] overflow active at t={}s spellLevel={} level={} radius={} wet={}-{}",
+                    lifeTicks / 20, spellLevel, SupportSpells.levelFor(spellLevel),
+                    overflow.getRadius(), wet[0], wet[1]);
         }
 
         // Rainfall discards itself on a fixed cadence, so it is re-summoned to keep up
         if (rainfall == null || rainfall.isRemoved()) {
-            rainfall = new RainfallAoe(server);
-            rainfall.setOwner(caster);
-            rainfall.setRadius(DomainConfig.DOMAIN_RADIUS);
-            rainfall.setDuration(DomainConfig.DOMAIN_DURATION_TICKS);
-            rainfall.setCircular();
-            rainfall.setPos(center().x, center().y, center().z);
+            rainfall = SupportSpells.createRainfall(server, caster, spellLevel,
+                    center().x, center().y, center().z);
             server.addFreshEntity(rainfall);
-            LOGGER.info("[DomainExpansion] rainfall active at t={}s radius={} level={}",
-                    lifeTicks / 20, rainfall.getRadius(), spellLevel);
+            LOGGER.info("[DomainExpansion] rainfall active at t={}s spellLevel={} level={} radius={} wet={}",
+                    lifeTicks / 20, spellLevel, SupportSpells.levelFor(spellLevel),
+                    rainfall.getRadius(), SupportSpells.rainfallWet(spellLevel, caster));
         }
     }
 

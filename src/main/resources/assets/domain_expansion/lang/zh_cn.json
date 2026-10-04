@@ -5,6 +5,8 @@
   "ui.domain_expansion.duration": "持续时间：%s",
   "ui.domain_expansion.domain_main": "展开深海之领域，封锁其中的一切",
   "ui.domain_expansion.forced_hit": "领域内攻击必定命中",
+  "ui.domain_expansion.overflow_level": "自动施放溢流：%s 级（潮湿 %s~%s 级）",
+  "ui.domain_expansion.rainfall_level": "自动施放雨落：%s 级（潮湿 %s 级）",
   "ui.domain_expansion.overflow_rainfall": "自动维持溢流与雨落",
   "domain_expansion.title.name": "领域展开",
   "domain_expansion.title.epithet": "「深海潜礁」",
