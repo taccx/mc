@@ -40,10 +40,10 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
                     "domain_expansion", "textures/entity/slash_line/slash_line_glow.png");
 
     /** How much wider than the line the halo is drawn. */
-    private static final float GLOW_SCALE = 2.6F;
+    private static final float GLOW_SCALE = 1.9F;
 
     /** The halo's opacity, kept low so it reads as a bleed rather than as a second line. */
-    private static final float GLOW_ALPHA = 0.55F;
+    private static final float GLOW_ALPHA = 0.34F;
 
     public SlashLineRenderer(EntityRendererProvider.Context context) {
         super(context);
