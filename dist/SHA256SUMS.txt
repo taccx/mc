@@ -1,8 +1,15 @@
 ﻿domain_expansion-1.0.0.jar
-  size    : 49366 bytes
-  sha256  : 6AB46CEEBBB6E13794648611EFF18A3512A58517A6CBD9CA661D51C9099A4CC0
-  built   : 2026-10-04 23:11:57
-  source  : commit tagged v1.0.0
+  size    : 49608 bytes
+  sha256  : E5B18BCD8C352374A12970EA9AE73ECF2882F14FFDAB7775F8887C2DA6FEA211
+  built   : 2026-10-04 23:19:29
+  source  : master (adds barrier diagnostics on top of tag v1.0.0)
+
+Tag guide
+  v1.0.0  the build confirmed working in game: radius 30 sphere, 8,486 blocks placed in
+          3.6 real seconds, held 120s of real time, restored in 0.45s. That tag's dist/ jar
+          and the jar in the modpack are identical apart from MANIFEST.MF.
+  master  adds diagnostics only (barrier counters, broadcast breakdown, support spell
+          logging). No behaviour change, but not yet re-confirmed in game.
 
 The jar is NOT byte-reproducible: build.gradle writes an Implementation-Timestamp into the
 manifest, so rebuilding the same source produces a jar differing by a byte or two. Compare

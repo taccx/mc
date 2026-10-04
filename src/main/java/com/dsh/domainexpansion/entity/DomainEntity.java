@@ -151,6 +151,10 @@ public class DomainEntity extends Entity {
     private RainfallAoe rainfall;
     private final Set<UUID> captured = new HashSet<>();
 
+    /** Running totals of barrier corrections, so the log can prove the barrier is working. */
+    private int barrierHeldInside;
+    private int barrierKeptOut;
+
     public DomainEntity(EntityType<? extends DomainEntity> type, Level level) {
         super(type, level);
         this.noPhysics = true;
@@ -599,11 +603,18 @@ public class DomainEntity extends Entity {
     /**
      * Keeps everything that was inside at cast time inside, and everything that was outside
      * out. The caster is always free to come and go.
+     *
+     * The counts are logged because this is otherwise completely silent: a working barrier
+     * and a barrier whose teleports never fire look identical in the log, and "the mob walked
+     * through it" cannot be told apart from "the mob was never in the sphere" without them.
+     * The method only runs once a second, so this cannot flood.
      */
     private void maintainBarrier(ServerLevel server) {
         Vec3 c = center();
         double radius = radius();
         double limit = radius - 1.0D;
+        int heldInside = 0;
+        int keptOut = 0;
 
         AABB box = new AABB(c, c).inflate(radius + 2.0D);
         for (LivingEntity entity : server.getEntitiesOfClass(LivingEntity.class, box)) {
@@ -620,12 +631,21 @@ public class DomainEntity extends Entity {
                     Vec3 clamped = c.add(offset.scale(limit / dist));
                     entity.teleportTo(server, clamped.x, clamped.y, clamped.z,
                             Set.of(), entity.getYRot(), entity.getXRot());
+                    heldInside++;
                 }
             } else if (dist < radius - 0.5D) {
                 Vec3 pushed = c.add(offset.scale((radius + 0.5D) / dist));
                 entity.teleportTo(server, pushed.x, pushed.y, pushed.z,
                         Set.of(), entity.getYRot(), entity.getXRot());
+                keptOut++;
             }
+        }
+
+        if (heldInside > 0 || keptOut > 0) {
+            barrierHeldInside += heldInside;
+            barrierKeptOut += keptOut;
+            LOGGER.info("[DomainExpansion] barrier at t={}s: {} held inside, {} kept out (totals {} / {})",
+                    lifeTicks / 20, heldInside, keptOut, barrierHeldInside, barrierKeptOut);
         }
     }
 
