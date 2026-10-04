@@ -1,0 +1,10 @@
+{
+  "spell.domain_expansion.domain_expansion": "领域展开",
+  "spell.domain_expansion.domain_expansion.guide": "以自身为中心展开半径 30 格的领域。领域之外的生物可以进入，但展开时已在其中的生物无法离开。领域内由你造成的攻击必定命中。领域持续期间会持续维持溢流与雨落，等级与领域展开相同。",
+  "ui.domain_expansion.radius": "半径：%s 格",
+  "ui.domain_expansion.duration": "持续时间：%s",
+  "ui.domain_expansion.domain_main": "展开水之领域，封锁其中的一切",
+  "ui.domain_expansion.forced_hit": "领域内攻击必定命中",
+  "ui.domain_expansion.overflow_rainfall": "自动维持溢流与雨落",
+  "itemGroup.domain_expansion": "领域展开"
+}

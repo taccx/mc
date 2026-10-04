@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "domain_expansion:block/domain_air"
+  },
+  "render_type": "minecraft:cutout"
+}

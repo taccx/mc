@@ -1,0 +1,39 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+
+# other
+eclipse
+run
+run-data
+logs
+
+# Files from Forge MDK
+forge*changelog.txt
+
+# Third-party dependency jars.
+#
+# irons_spellbooks and traveloptics are ~40MB of someone else's code and are not ours to
+# redistribute. They are needed to compile, so ./libs must be populated before a build -
+# see README.md for the exact command.
+libs/
+
+# Scratch
+*.log
+*.bak
+*.tmp

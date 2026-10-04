@@ -1,0 +1,16 @@
+pluginManagement {
+    repositories {
+        // Resolved through the local Clash proxy on 127.0.0.1:7890 (see gradle.properties).
+        //
+        // Both of these hosts are unreachable from this machine without that proxy, and
+        // neither works through the Chinese mirrors: bmclapi serves Forge artifacts but
+        // redirects some of them to a host whose TLS handshake fails, and Aliyun does not
+        // carry the Forge plugin marker at all. The proxy is therefore the only route for
+        // plugin resolution, and build.gradle carries no mirror repositories either.
+        gradlePluginPortal()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}

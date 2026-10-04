@@ -1,0 +1,14 @@
+﻿domain_expansion-1.0.0.jar
+  size    : 49366 bytes
+  sha256  : 6AB46CEEBBB6E13794648611EFF18A3512A58517A6CBD9CA661D51C9099A4CC0
+  built   : 2026-10-04 23:11:57
+  source  : commit tagged v1.0.0
+
+The jar is NOT byte-reproducible: build.gradle writes an Implementation-Timestamp into the
+manifest, so rebuilding the same source produces a jar differing by a byte or two. Compare
+behaviour, not hashes, when checking out an older tag and rebuilding.
+
+Install by copying it into the modpack's mods folder while the game is CLOSED:
+  ...\.minecraft\versions\涟漪之篇·如涟漪之所见\mods\
+Replacing it while the game is loading corrupts the mod scan and crashes the game with a
+misleading UnionFileSystem. Use install-jar.ps1, which checks this.
