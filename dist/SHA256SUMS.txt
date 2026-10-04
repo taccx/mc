@@ -1,7 +1,7 @@
 ﻿domain_expansion-1.0.0.jar
-  size    : 61037 bytes
-  sha256  : 11E42826C3B4B1C4503E388C51FCA3E28A179B627BACBC627B6B6AE56513B964
-  built   : 2026-10-05 00:14:14
+  size    : 61041 bytes
+  sha256  : 956EC3A911C14162C0721700C22A7485725089AC3AA60716D37FD3CCFCD3F0F8
+  built   : 2026-10-05 00:17:53
   source  : master (adds barrier diagnostics on top of tag v1.0.0)
 
 Tag guide
@@ -19,6 +19,7 @@ Install by copying it into the modpack's mods folder while the game is CLOSED:
   ...\.minecraft\versions\涟漪之篇·如涟漪之所见\mods\
 Replacing it while the game is loading corrupts the mod scan and crashes the game with a
 misleading UnionFileSystem. Use install-jar.ps1, which checks this.
+
 
 
 

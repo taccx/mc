@@ -51,11 +51,29 @@ public final class DomainConfig {
     /** Max spell level of Domain Expansion. */
     public static final int MAX_LEVEL = 3;
 
-    /** Base mana cost per cast. */
-    public static final int BASE_MANA_COST = 200;
+    /**
+     * Base mana cost, and the cost added by each level above the first.
+     *
+     * Iron's computes {@code baseManaCost + manaCostPerLevel * (level - 1)}, multiplied by the
+     * spell's {@code MANA_MULTIPLIER} config value - which is 1.0 here, since neither the pack's
+     * server config nor any datapack overrides it. These two numbers therefore give exactly:
+     *
+     *   level 1 -> 1000
+     *   level 2 -> 2000
+     *   level 3 -> 3000
+     *
+     * The domain is meant to be the Aqua school's ultimate, and at the original 200/200 it cost
+     * 600 at maximum level, which is pocket change next to what it does.
+     *
+     * Worth knowing before tuning: a cost can only be paid if the caster's maximum mana can
+     * reach it. Iron's base maximum is far below 3000 and is raised by attributes from gear, so
+     * if a level 3 scroll cannot be cast at all, this is why - lower these together rather than
+     * only the base, or the top level stays out of reach.
+     */
+    public static final int BASE_MANA_COST = 1000;
 
     /** Additional mana per spell level. */
-    public static final int MANA_COST_PER_LEVEL = 200;
+    public static final int MANA_COST_PER_LEVEL = 1000;
 
     /** Cast time in ticks; the spell also declares itself INSTANT. */
     public static final int CAST_TIME = 0;
