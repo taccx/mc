@@ -76,11 +76,12 @@ public final class CrimsonSlash {
     public static final int BLOOD_PER_VICTIM_PER_SECOND = 30;
 
     /**
-     * Slash lines a second, at most, <em>per victim</em>.
+     * Slash lines a second, at most, <em>per victim</em>. No longer used.
      *
-     * These are the lines now drawn as textured entities rather than particles - see
-     * {@link SlashLines}. Fifty a second each was asked for, and clarified as per entity rather
-     * than in total; the ceiling they share is {@link SlashLines#MAX_LIVE_LINES}.
+     * Fifty a second each was asked for, then removed: the automatic attack is damage and blood
+     * only now, with no entity of its own, and every line in the domain comes from the ambient
+     * layer at {@code DomainEntity.AMBIENT_LINES_PER_SECOND}. Kept as a note so the number is not
+     * re-invented if the per-victim lines are ever wanted back.
      */
     public static final int LINES_PER_VICTIM_PER_SECOND = 50;
 

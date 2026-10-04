@@ -190,13 +190,19 @@ public class DomainEntity extends Entity {
     private final List<SlashLineEntity> slashLines = new ArrayList<>();
 
     /**
-     * Lines started in the sphere every tick regardless of whether anything is being cut, so a
-     * domain with nothing in it still has something moving across it.
+     * Lines started in the sphere every second, whether or not anything is being cut, so a domain
+     * with nothing in it still has something moving across it.
      *
-     * Six, up from two, which was reported as too sparse to read as a domain full of slashes.
-     * They share {@link SlashLines#MAX_LIVE_LINES} with the per-victim lines.
+     * A hundred and fifty, asked for after the effect was seen in play. It is spent through the
+     * same allocator as the slash rate rather than as a per-tick figure, because a hundred and
+     * fifty does not divide into twenty ticks and a rounded seven a tick would come to a hundred
+     * and forty.
+     *
+     * These are now the only lines drawn: the per-victim ones were removed, so the automatic
+     * attack is damage and blood with no entity of its own. They still share
+     * {@link SlashLines#MAX_LIVE_LINES}.
      */
-    private static final int AMBIENT_LINES_PER_TICK = 10;
+    private static final int AMBIENT_LINES_PER_SECOND = 150;
 
     /** Strikes landed, reported in the heartbeat so the rate can be checked. */
     private int slashHits;
@@ -908,7 +914,8 @@ public class DomainEntity extends Entity {
         slashLines.removeIf(Entity::isRemoved);
 
         // the ambient layer first, so an empty domain is not a dead one
-        for (int i = 0; i < AMBIENT_LINES_PER_TICK; i++) {
+        int ambient = CrimsonSlash.allocationsThisTick(AMBIENT_LINES_PER_SECOND, lifeTicks);
+        for (int i = 0; i < ambient; i++) {
             spawnSlashLine(server, randomPointInside());
         }
 
@@ -934,8 +941,6 @@ public class DomainEntity extends Entity {
         // per victim, not per tick: each entity gets its own allowance
         int bloodPerVictim = CrimsonSlash.allocationsThisTick(
                 CrimsonSlash.BLOOD_PER_VICTIM_PER_SECOND, lifeTicks);
-        int linesPerVictim = CrimsonSlash.allocationsThisTick(
-                CrimsonSlash.LINES_PER_VICTIM_PER_SECOND, lifeTicks);
         int bloodSpent = 0;
 
         for (LivingEntity victim : victims) {
@@ -955,16 +960,6 @@ public class DomainEntity extends Entity {
                 bloodBursts++;
             }
 
-            Vec3 body = new Vec3(
-                    victim.getX(),
-                    victim.getY() + victim.getBbHeight() * 0.5D,
-                    victim.getZ());
-            for (int i = 0; i < linesPerVictim; i++) {
-                if (!spawnSlashLine(server, body)) {
-                    // ceiling reached: no point asking for the rest of this victim's allowance
-                    break;
-                }
-            }
         }
     }
 
