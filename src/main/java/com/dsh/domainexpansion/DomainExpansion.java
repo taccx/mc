@@ -1,6 +1,7 @@
 package com.dsh.domainexpansion;
 
 import com.dsh.domainexpansion.handler.DomainHitHandler;
+import com.dsh.domainexpansion.handler.DomainTargetingHandler;
 import com.dsh.domainexpansion.handler.DomainTickHandler;
 import com.dsh.domainexpansion.registry.ModBlocks;
 import com.dsh.domainexpansion.registry.ModEntities;
@@ -17,10 +18,13 @@ import org.slf4j.Logger;
  * "Domain Expansion" (领域展开).
  *
  * While a domain is open:
- *   - a solid dome on a flat floor seals the area off from the outside,
+ *   - a sphere of real blocks seals the area off; nothing inside can leave and nothing
+ *     outside can enter,
  *   - damage the caster deals inside is applied to every other entity inside,
- *   - Overflow and Rainfall are maintained for the full two minutes at the same
- *     spell level as the domain.
+ *   - the caster's thrown spells curve towards whatever is trapped with them, and lock-on
+ *     spells are handed a target instead of needing the crosshair pointed at one,
+ *   - Overflow and Rainfall are maintained for the full two minutes at the same spell level
+ *     as the domain.
  */
 @Mod(DomainExpansion.MODID)
 public class DomainExpansion {
@@ -39,7 +43,8 @@ public class DomainExpansion {
         // gameplay rule hooks live on the forge bus
         MinecraftForge.EVENT_BUS.register(DomainHitHandler.class);
         MinecraftForge.EVENT_BUS.register(DomainTickHandler.class);
+        MinecraftForge.EVENT_BUS.register(DomainTargetingHandler.class);
 
-        LOGGER.info("[DomainExpansion] registered spell, shell block, domain entity and hooks");
+        LOGGER.info("[DomainExpansion] registered spell, domain blocks, entity and gameplay hooks");
     }
 }

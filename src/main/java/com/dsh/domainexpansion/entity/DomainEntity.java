@@ -13,10 +13,16 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
+import net.minecraft.ChatFormatting;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -74,6 +80,13 @@ public class DomainEntity extends Entity {
 
     /** Clients only, matching Cursed Fate. */
     private static final int PLACE_FLAGS = Block.UPDATE_CLIENTS;
+
+    /**
+     * How far a guided projectile turns towards its target each tick, as a fraction of its
+     * velocity. Low enough that the flight path visibly curves rather than snapping onto the
+     * target the instant anything enters the domain.
+     */
+    private static final double GUIDANCE_TURN = 0.30D;
 
     /**
      * The redundant particle layer drawn over the finished wall.
@@ -144,6 +157,9 @@ public class DomainEntity extends Entity {
     /** True once {@link #initialize} has wired this domain up. */
     private boolean initialized;
 
+    /** How many projectile course corrections have been made, reported in the heartbeat. */
+    private int projectilesGuided;
+
     /** The particle shell drawn over the finished wall. */
     private List<Vec3> particlePoints = List.of();
     private int particleCursor;
@@ -155,6 +171,18 @@ public class DomainEntity extends Entity {
     /** Running totals of barrier corrections, so the log can prove the barrier is working. */
     private int barrierHeldInside;
     private int barrierKeptOut;
+
+    /**
+     * Which announcement has been shown: 0 = none yet, 1 = the name, 2 = the epithet.
+     *
+     * Sent as ordinary vanilla title packets rather than anything custom, so it lands in the
+     * middle of the screen exactly like a /title command does - which is what was asked for.
+     */
+    private int titleStage;
+
+    /** The name is on screen for this long before the epithet follows it. */
+    private static final int TITLE_NAME_STAY = 35;
+    private static final int TITLE_EPITHET_AT = TITLE_NAME_STAY + 15;
 
     public DomainEntity(EntityType<? extends DomainEntity> type, Level level) {
         super(type, level);
@@ -299,16 +327,19 @@ public class DomainEntity extends Entity {
         }
 
         if (lifeTicks % 100 == 0) {
-            LOGGER.info("[DomainExpansion] t={}s phase={} r={} y={} written={} captured={}",
-                    lifeTicks / 20, phase, currentRadius, currentVerticalY, originalBlocks.size(), captured.size());
+            LOGGER.info("[DomainExpansion] t={}s phase={} r={} y={} written={} captured={} guided={}",
+                    lifeTicks / 20, phase, currentRadius, currentVerticalY, originalBlocks.size(),
+                    captured.size(), projectilesGuided);
         }
 
         if (lifeTicks % PERIODIC_INTERVAL == 0) {
             maintainBarrier(server);
             maintainSupportSpells(server);
         }
+        announce(server);
 
         if (buildComplete) {
+            guideProjectiles(server);
             emitBoundaryParticles(server);
             if (domainMillis >= DomainConfig.DOMAIN_DURATION_MILLIS) {
                 LOGGER.info("[DomainExpansion] domain closing after {}s of real time", domainMillis / 1000L);
@@ -595,6 +626,174 @@ public class DomainEntity extends Entity {
             ACTIVE.remove(this);
         }
         super.remove(reason);
+    }
+
+    // ------------------------------------------------------------------
+    // guidance for thrown spells
+    // ------------------------------------------------------------------
+
+    /**
+     * Steers the caster's own projectiles towards the nearest other entity inside the domain.
+     *
+     * Thrown spells pick their direction at the moment they are launched, so inside a domain
+     * they would otherwise sail past everything. Rather than reimplementing any particular
+     * spell, this turns each in-flight projectile a fraction of the way towards a target every
+     * tick: the path curves, and whatever the spell does when it arrives still happens
+     * normally.
+     *
+     * Only the caster's projectiles are touched, and only while they are inside their own
+     * domain - this must not hijack anyone else's arrows, or the caster's own once they leave.
+     */
+    private void guideProjectiles(ServerLevel server) {
+        AABB box = new AABB(center(), center()).inflate(radius());
+        List<Projectile> projectiles = server.getEntitiesOfClass(Projectile.class, box);
+        if (projectiles.isEmpty()) {
+            return;
+        }
+        // gathered once per tick rather than once per projectile
+        List<LivingEntity> targets = server.getEntitiesOfClass(LivingEntity.class, box);
+
+        for (Projectile projectile : projectiles) {
+            if (projectile.isRemoved() || projectile.onGround()) {
+                continue;
+            }
+            Entity owner = projectile.getOwner();
+            if (owner == null || !owner.getUUID().equals(ownerUuid)) {
+                continue;
+            }
+            if (!contains(projectile)) {
+                continue;
+            }
+            Vec3 motion = projectile.getDeltaMovement();
+            if (motion.lengthSqr() < 1.0E-6D) {
+                continue;
+            }
+            LivingEntity target = nearestTarget(projectile, targets);
+            if (target == null) {
+                continue;
+            }
+
+            Vec3 aim = target.position()
+                    .add(0.0D, target.getBbHeight() * 0.5D, 0.0D)
+                    .subtract(projectile.position());
+            if (aim.lengthSqr() < 1.0E-6D) {
+                continue;
+            }
+            // keep the projectile's speed; only the direction is corrected
+            Vec3 wanted = aim.normalize().scale(motion.length());
+            Vec3 steered = motion.scale(1.0D - GUIDANCE_TURN).add(wanted.scale(GUIDANCE_TURN));
+            projectile.setDeltaMovement(steered);
+            // makes the server resend the velocity, otherwise the client keeps drawing the old path
+            projectile.hurtMarked = true;
+            projectilesGuided++;
+        }
+    }
+
+    private LivingEntity nearestTarget(Projectile projectile, List<LivingEntity> candidates) {
+        LivingEntity best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (LivingEntity candidate : candidates) {
+            if (candidate.getUUID().equals(ownerUuid) || !candidate.isAlive()) {
+                continue;
+            }
+            if (candidate == projectile.getOwner() || !contains(candidate)) {
+                continue;
+            }
+            double d = candidate.position().distanceToSqr(projectile.position());
+            if (d < bestDistance) {
+                bestDistance = d;
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    // ------------------------------------------------------------------
+    // announcement
+    // ------------------------------------------------------------------
+
+    /**
+     * Shows the domain's name across the middle of the screen, then its epithet once the
+     * first has finished.
+     *
+     * Sent to the caster, and to anyone else trapped inside - a domain announcing itself to
+     * the people it has closed in is the point - as plain vanilla title packets, which is
+     * what the requested "/title-like" behaviour actually is. The title's size is fixed by
+     * the client; there is no packet-level scale, so "big but not too big" is the vanilla
+     * title size.
+     */
+    private void announce(ServerLevel server) {
+        if (titleStage >= 2) {
+            return;
+        }
+        if (titleStage == 0) {
+            for (ServerPlayer player : audience(server)) {
+                player.connection.send(new ClientboundSetTitlesAnimationPacket(5, TITLE_NAME_STAY, 10));
+                player.connection.send(new ClientboundSetTitleTextPacket(
+                        Component.translatable("domain_expansion.title.name").withStyle(ChatFormatting.BLUE)));
+            }
+            titleStage = 1;
+            return;
+        }
+        if (lifeTicks >= TITLE_EPITHET_AT) {
+            for (ServerPlayer player : audience(server)) {
+                player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 45, 10));
+                player.connection.send(new ClientboundSetTitleTextPacket(
+                        Component.translatable("domain_expansion.title.epithet").withStyle(ChatFormatting.BLUE)));
+            }
+            titleStage = 2;
+            LOGGER.info("[DomainExpansion] announced both titles by t={}s", lifeTicks / 20);
+        }
+    }
+
+    /** The caster, plus anyone inside the sphere. */
+    private List<ServerPlayer> audience(ServerLevel server) {
+        List<ServerPlayer> players = new ArrayList<>();
+        AABB box = new AABB(center(), center()).inflate(radius());
+        for (ServerPlayer player : server.getEntitiesOfClass(ServerPlayer.class, box)) {
+            if (player.getUUID().equals(ownerUuid) || contains(player)) {
+                players.add(player);
+            }
+        }
+        return players;
+    }
+
+    // ------------------------------------------------------------------
+    // target selection
+    // ------------------------------------------------------------------
+
+    /**
+     * The nearest living entity inside the domain that is not the caster, for spells that are
+     * told their target rather than finding one themselves.
+     *
+     * Iron's Spellbooks normally gets a target from the client's crosshair: the client
+     * raycasts, highlights what it found and syncs it to the server, which is why a lock-on
+     * spell still needs aiming inside a domain. Spells of that kind read
+     * {@code MagicData.getAdditionalCastData()} rather than raycasting themselves, so setting
+     * that field before the cast hands them a target with no client involvement at all.
+     */
+    public LivingEntity nearestTargetTo(LivingEntity caster) {
+        if (!(level() instanceof ServerLevel server)) {
+            return null;
+        }
+        Vec3 c = center();
+        AABB box = new AABB(c, c).inflate(radius());
+        LivingEntity best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (LivingEntity candidate : server.getEntitiesOfClass(LivingEntity.class, box)) {
+            if (candidate == caster || candidate.getUUID().equals(ownerUuid) || !candidate.isAlive()) {
+                continue;
+            }
+            if (!contains(candidate)) {
+                continue;
+            }
+            double d = candidate.position().distanceToSqr(caster.position());
+            if (d < bestDistance) {
+                bestDistance = d;
+                best = candidate;
+            }
+        }
+        return best;
     }
 
     // ------------------------------------------------------------------

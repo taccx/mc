@@ -1,10 +1,12 @@
 {
   "spell.domain_expansion.domain_expansion": "Domain Expansion",
-  "spell.domain_expansion.domain_expansion.guide": "Opens a 30 block radius domain centred on you. Entities outside may enter, but anything inside when it opens cannot leave. Your attacks from within always land. While it lasts, Overflow and Rainfall are maintained at the same level.",
+  "spell.domain_expansion.domain_expansion.guide": "Opens a 30 block radius domain centred on you. Entities outside cannot enter, and anything inside when it opens cannot leave. Your attacks from within always land, and thrown spells seek their targets. While it lasts, Overflow and Rainfall are maintained at the same level.",
   "ui.domain_expansion.radius": "Radius: %s blocks",
   "ui.domain_expansion.duration": "Duration: %s",
-  "ui.domain_expansion.domain_main": "Unfolds a domain of water that seals everything within",
+  "ui.domain_expansion.domain_main": "Unfolds an abyssal domain that seals everything within",
   "ui.domain_expansion.forced_hit": "Attacks inside always land",
   "ui.domain_expansion.overflow_rainfall": "Maintains Overflow and Rainfall",
+  "domain_expansion.title.name": "Domain Expansion",
+  "domain_expansion.title.epithet": "Deep Sea Reef",
   "itemGroup.domain_expansion": "Domain Expansion"
 }
