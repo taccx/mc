@@ -35,11 +35,17 @@ public final class SlashStreaks {
     /** Blocks per tick. Long enough to look like a slash, short enough to stay inside. */
     private static final double SPEED = 1.1D;
 
-    /** Emitted every other tick, so the effect is continuous without flooding the client. */
-    private static final int SPAWN_INTERVAL_TICKS = 2;
+    /**
+     * Emitted every tick, so the effect stays continuous without flooding the client.
+     *
+     * Was every other tick with a batch of two - one streak a tick. Raising it to three a tick
+     * was asked for after seeing it in game: the density is the part that reads as activity, and
+     * three a tick costs nine particles against the sixty the wall already spends.
+     */
+    private static final int SPAWN_INTERVAL_TICKS = 1;
 
     /** How many streaks each spawn produces. */
-    private static final int BATCH = 2;
+    private static final int BATCH = 3;
 
     /** Roughly one streak in three is red; the rest are white. */
     private static final double RED_CHANCE = 0.35D;
