@@ -193,16 +193,16 @@ public class DomainEntity extends Entity {
      * Lines started in the sphere every second, whether or not anything is being cut, so a domain
      * with nothing in it still has something moving across it.
      *
-     * A hundred and fifty, asked for after the effect was seen in play. It is spent through the
-     * same allocator as the slash rate rather than as a per-tick figure, because a hundred and
-     * fifty does not divide into twenty ticks and a rounded seven a tick would come to a hundred
-     * and forty.
+     * Three hundred, doubled from a hundred and fifty once the effect was seen in play, and spent
+     * through the same allocator as the slash rate. Three hundred divides into twenty ticks
+     * cleanly - fifteen a tick - so the allocator has nothing to spread, but it stays in use so
+     * that changing this number to one that does not divide cannot silently round the rate down.
      *
      * These are now the only lines drawn: the per-victim ones were removed, so the automatic
      * attack is damage and blood with no entity of its own. They still share
      * {@link SlashLines#MAX_LIVE_LINES}.
      */
-    private static final int AMBIENT_LINES_PER_SECOND = 150;
+    private static final int AMBIENT_LINES_PER_SECOND = 300;
 
     /** Strikes landed, reported in the heartbeat so the rate can be checked. */
     private int slashHits;
