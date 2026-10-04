@@ -1,6 +1,7 @@
 package com.dsh.domainexpansion.entity;
 
 import com.dsh.domainexpansion.DomainConfig;
+import com.dsh.domainexpansion.domain.Barrier;
 import com.dsh.domainexpansion.domain.SphereShape;
 import com.dsh.domainexpansion.registry.ModBlocks;
 import com.dsh.domainexpansion.registry.ModEntities;
@@ -612,7 +613,6 @@ public class DomainEntity extends Entity {
     private void maintainBarrier(ServerLevel server) {
         Vec3 c = center();
         double radius = radius();
-        double limit = radius - 1.0D;
         int heldInside = 0;
         int keptOut = 0;
 
@@ -626,17 +626,19 @@ public class DomainEntity extends Entity {
             if (dist < 1.0E-4D) {
                 continue;
             }
-            if (captured.contains(entity.getUUID())) {
-                if (dist > limit) {
-                    Vec3 clamped = c.add(offset.scale(limit / dist));
-                    entity.teleportTo(server, clamped.x, clamped.y, clamped.z,
-                            Set.of(), entity.getYRot(), entity.getXRot());
-                    heldInside++;
-                }
-            } else if (dist < radius - 0.5D) {
-                Vec3 pushed = c.add(offset.scale((radius + 0.5D) / dist));
-                entity.teleportTo(server, pushed.x, pushed.y, pushed.z,
-                        Set.of(), entity.getYRot(), entity.getXRot());
+            boolean isCaptured = captured.contains(entity.getUUID());
+            // the arithmetic lives in Barrier, where it is unit tested: a teleport either
+            // happens or it does not, so it cannot be confirmed from a log
+            double corrected = Barrier.correctedDistance(dist, isCaptured, radius);
+            if (corrected <= 0.0D) {
+                continue;
+            }
+            Vec3 target = c.add(offset.scale(corrected / dist));
+            entity.teleportTo(server, target.x, target.y, target.z,
+                    Set.of(), entity.getYRot(), entity.getXRot());
+            if (isCaptured) {
+                heldInside++;
+            } else {
                 keptOut++;
             }
         }
