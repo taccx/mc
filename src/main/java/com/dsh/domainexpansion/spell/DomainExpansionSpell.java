@@ -44,19 +44,34 @@ public class DomainExpansionSpell extends AbstractSpell {
             .build();
 
     /**
-     * The hand seal played during the wind-up: both arms drawing together over 1.5 seconds and
-     * then holding, shipped as {@code player_animation/domain_seal.json}.
+     * The hand seal played during the wind-up: both arms already pointing forward and apart,
+     * drawing together over 1.5 seconds and then holding. Shipped as
+     * {@code player_animation/domain_seal.json}.
      *
-     * Iron's own animations were tried first and none of them fits. {@code long_cast}, the
-     * animation Iron's uses for long casts, is five seconds of two poses alternating every half
-     * second - a charging tremor, not hands coming together. {@code self_cast_two_hands} is the
-     * pose wanted at the end, but as a single keyframe: the hands are already together, so
-     * playing it snaps them into place instead of moving them.
+     * Iron's own animations were tried first and none of them fits. {@code long_cast} is five
+     * seconds of two poses alternating every half second, a charging tremor rather than a motion
+     * towards anything. {@code self_cast_two_hands} is the pose wanted, but as a single keyframe:
+     * playing it snaps the hands into place instead of moving them. And a search across every
+     * animation in {@code casting_animations.json} for one where both arms point forward and are
+     * spread apart came back empty - no such pose exists to start from.
      *
-     * So the animation is authored here, interpolating between two poses Iron's wrote. It
-     * starts from {@code long_cast}'s opening frame and eases into
-     * {@code self_cast_two_hands}'s pose, which keeps both ends of the motion something that
-     * was already known to look right rather than rotations guessed at.
+     * So the animation is authored, using the axis meanings read out of Iron's own poses rather
+     * than guessed at:
+     *
+     * <pre>
+     *   cast_t_pose          arms straight out to the sides   Z = +95 / -97.5, X = 0
+     *   continuous_thrust    arms pointing straight forward   X = -90, Z = 0
+     * </pre>
+     *
+     * Z therefore swings an arm out to the side and X tilts it forward, so the motion keeps X
+     * fixed - the hands point forward of the caster the whole way through - and animates Z
+     * alone, from a wide T-pose-like spread of +105 / -110 down to +8 / -10. Only the closing
+     * movement is animated, which is what was asked for: hands that already point forward at the
+     * sides, coming together.
+     *
+     * An earlier attempt started from {@code long_cast}'s opening frame instead, which changed X
+     * as well and read in game as the hands being raised and then lowered. Worth remembering if
+     * this is ever retuned: the fix was to animate one axis, not to find better numbers.
      */
     private static final AnimationHolder SEAL_ANIMATION = new AnimationHolder(
             ResourceLocation.fromNamespaceAndPath("domain_expansion", "domain_seal"), true);
