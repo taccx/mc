@@ -44,34 +44,36 @@ public class DomainExpansionSpell extends AbstractSpell {
             .build();
 
     /**
-     * The hand seal played during the wind-up: both arms already pointing forward and apart,
-     * drawing together over 1.5 seconds and then holding. Shipped as
-     * {@code player_animation/domain_seal.json}.
+     * The hand seal played during the wind-up: both arms already pointing forward and slightly
+     * apart, closing together over the first 1.5 seconds and then holding still for the last
+     * 0.5. Shipped as {@code player_animation/domain_seal.json}.
      *
      * Iron's own animations were tried first and none of them fits. {@code long_cast} is five
      * seconds of two poses alternating every half second, a charging tremor rather than a motion
-     * towards anything. {@code self_cast_two_hands} is the pose wanted, but as a single keyframe:
-     * playing it snaps the hands into place instead of moving them. And a search across every
-     * animation in {@code casting_animations.json} for one where both arms point forward and are
-     * spread apart came back empty - no such pose exists to start from.
+     * towards anything. {@code self_cast_two_hands} is a pose, but a single keyframe: playing it
+     * snaps the hands into place instead of moving them. A search of all 75 animations for one
+     * where both arms point forward and are spread apart returned nothing.
      *
-     * So the animation is authored, using the axis meanings read out of Iron's own poses rather
-     * than guessed at:
+     * So the animation is authored, and the axis to animate was found the hard way - two earlier
+     * attempts looked wrong in game before the model was understood. Minecraft applies a model
+     * part's rotation as X, then Y, then Z, so the same axis means different things depending on
+     * what the others are doing:
      *
      * <pre>
-     *   cast_t_pose          arms straight out to the sides   Z = +95 / -97.5, X = 0
-     *   continuous_thrust    arms pointing straight forward   X = -90, Z = 0
+     *   X   swings the arm forward. Applied first, and -90 points it straight ahead - the value
+     *       continuous_thrust holds.
+     *   Y   yaws an already-forward arm sideways. Applied after X, so this is the axis that
+     *       opens and closes a forward-pointing pair of hands.
+     *   Z   swings a hanging arm out to the side; cast_t_pose uses Z = +95 / -97.5 with X = 0.
+     *       It is the wrong axis here: with X near -90 the arm already points away from the Z
+     *       axis, so changing Z spins it in place rather than moving it.
      * </pre>
      *
-     * Z therefore swings an arm out to the side and X tilts it forward, so the motion keeps X
-     * fixed - the hands point forward of the caster the whole way through - and animates Z
-     * alone, from a wide T-pose-like spread of +105 / -110 down to +8 / -10. Only the closing
-     * movement is animated, which is what was asked for: hands that already point forward at the
-     * sides, coming together.
-     *
-     * An earlier attempt started from {@code long_cast}'s opening frame instead, which changed X
-     * as well and read in game as the hands being raised and then lowered. Worth remembering if
-     * this is ever retuned: the fix was to animate one axis, not to find better numbers.
+     * The first attempt changed X and Z together, which read as the hands being raised and then
+     * lowered. The second held X at -95 and animated Z, which read as the arms rotating half a
+     * turn and only meeting in the final moment. This one holds X at -90 and Z at 0, and
+     * animates Y alone from -25 / +25 to -3 / +3, so the hands stay pointed forward throughout
+     * and do nothing but close, finishing well before the hold.
      */
     private static final AnimationHolder SEAL_ANIMATION = new AnimationHolder(
             ResourceLocation.fromNamespaceAndPath("domain_expansion", "domain_seal"), true);
