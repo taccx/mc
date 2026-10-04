@@ -79,25 +79,49 @@ class CrimsonSlashTest {
     }
 
     @Test
-    @DisplayName("exactly thirty strikes land in a second")
-    void thirtyStrikesASecond() {
+    @DisplayName("exactly a hundred strikes land in a second")
+    void hundredStrikesASecond() {
         int total = 0;
         for (int tick = 0; tick < 20; tick++) {
             total += CrimsonSlash.hitsForTick(tick);
         }
-        assertEquals(30, total, "a second of domain ticks did not produce thirty strikes");
-        assertEquals(30.0D, CrimsonSlash.HITS_PER_SECOND, 1.0E-9D);
+        assertEquals(100, total, "a second of domain ticks did not produce a hundred strikes");
+        assertEquals(100.0D, CrimsonSlash.HITS_PER_SECOND, 1.0E-9D);
     }
 
     @Test
-    @DisplayName("the rate alternates one and two, never zero or a burst")
-    void rateAlternates() {
-        for (int tick = 0; tick < 40; tick++) {
-            int hits = CrimsonSlash.hitsForTick(tick);
-            assertTrue(hits >= 1 && hits <= 2, "tick " + tick + " applied " + hits + " strikes");
+    @DisplayName("the per-second allowances land exactly, and are spread rather than bunched")
+    void allowancesAreSpread() {
+        // thirty and fifty do not divide into twenty ticks, so both need spreading
+        assertEquals(30, sumOverOneSecond(CrimsonSlash.BLOOD_PER_SECOND));
+        assertEquals(50, sumOverOneSecond(CrimsonSlash.STREAKS_PER_SECOND));
+
+        // and no tick may spend more than one over the whole-tick share, which is what "spread"
+        // means: the remainder must not all land on the same tick
+        for (int perSecond : new int[]{CrimsonSlash.BLOOD_PER_SECOND, CrimsonSlash.STREAKS_PER_SECOND}) {
+            int everyTick = perSecond / 20;
+            int max = 0;
+            for (int tick = 0; tick < 20; tick++) {
+                max = Math.max(max, CrimsonSlash.allocationsThisTick(perSecond, tick));
+            }
+            assertEquals(everyTick + 1, max,
+                    perSecond + " a second bunched more than the remainder into one tick");
         }
-        // and it is the same pattern every two ticks, so the rate does not drift
-        assertEquals(CrimsonSlash.hitsForTick(0), CrimsonSlash.hitsForTick(2));
-        assertEquals(CrimsonSlash.hitsForTick(1), CrimsonSlash.hitsForTick(3));
+    }
+
+    private static int sumOverOneSecond(int perSecond) {
+        int total = 0;
+        for (int tick = 0; tick < 20; tick++) {
+            total += CrimsonSlash.allocationsThisTick(perSecond, tick);
+        }
+        return total;
+    }
+
+    @Test
+    @DisplayName("an allowance that divides evenly is flat")
+    void evenAllowanceIsFlat() {
+        for (int tick = 0; tick < 20; tick++) {
+            assertEquals(4, CrimsonSlash.allocationsThisTick(80, tick));
+        }
     }
 }

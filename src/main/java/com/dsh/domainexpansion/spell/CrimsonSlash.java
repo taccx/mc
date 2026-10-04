@@ -2,11 +2,10 @@ package com.dsh.domainexpansion.spell;
 
 import io.redspace.ironsspellbooks.api.registry.SpellRegistry;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
-import io.redspace.ironsspellbooks.entity.spells.blood_slash.BloodSlashProjectile;
+import io.redspace.ironsspellbooks.util.ParticleHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * The crimson domain's automatic attack: 猩红斩击, Iron's Spellbooks' Blood Slash, applied
@@ -50,44 +49,47 @@ public final class CrimsonSlash {
     public static final int LEVEL_BONUS = 2;
 
     /**
-     * How often the slash lands.
+     * How often the slash lands: five every tick, which is exactly a hundred a second.
      *
-     * Thirty times a second was asked for, after Blood Slash turned out to hit for very little.
-     * Thirty is not a whole number of ticks - a second is twenty - so it is built as one strike
-     * every tick plus one more on every other tick, which averages 1.5 a tick and is exactly
-     * thirty a second. {@link #hitsForTick} is that rule, kept as arithmetic so it can be
-     * tested rather than counted by hand.
+     * It was thirty, built as one strike a tick plus one on every other tick, because thirty does
+     * not divide into twenty. A hundred does, so the alternating rule is gone and this is now
+     * simply five.
      */
-    public static final int HITS_PER_TICK = 1;
-
-    /** One extra strike on every Nth tick. Two, which is what turns 1 into 1.5. */
-    public static final int EXTRA_HIT_EVERY_TICKS = 2;
+    public static final int HITS_PER_TICK = 5;
 
     /** The resulting rate, for the scroll text and the log. */
-    public static final double HITS_PER_SECOND =
-            20.0D * (HITS_PER_TICK + 1.0D / EXTRA_HIT_EVERY_TICKS);
+    public static final double HITS_PER_SECOND = 20.0D * HITS_PER_TICK;
+
+    /**
+     * Blood bursts a second, at most.
+     *
+     * Asked for as a cap after the rate went up: a hundred strikes a second each spattering
+     * blood would be more particles than the effect is worth. Thirty is a third of the strikes,
+     * which is enough to see that something is bleeding.
+     */
+    public static final int BLOOD_PER_SECOND = 30;
+
+    /**
+     * Slash visuals a second, at most - the red and white lines.
+     *
+     * These replaced the Blood Slash projectile as the visible slash. Fifty a second, as asked,
+     * against the sixty the ambient lines were spawning before, so this is a slight reduction in
+     * what gets drawn rather than an increase.
+     */
+    public static final int STREAKS_PER_SECOND = 50;
+
+    /** Particles in one blood burst. Small, because there are thirty bursts a second. */
+    public static final int BLOOD_PARTICLES_PER_BURST = 10;
 
     /**
      * One strike in this many is allowed to make a sound.
      *
-     * Every strike plays the victim's hurt sound, and thirty a second is not a sound effect, it
-     * is a buzzsaw. The rest are applied with the victim silenced for the instant of the blow,
+     * Every strike plays the victim's hurt sound, and a hundred a second is not a sound effect,
+     * it is a buzzsaw. The rest are applied with the victim silenced for the instant of the blow,
      * which is a server-side flag and does not reach the client, so nothing else about the
      * entity is affected. Two a second is enough to hear that something is happening.
      */
     public static final int AUDIBLE_EVERY_TICKS = 10;
-
-    /**
-     * How many slash visuals may exist at once.
-     *
-     * The projectile lives 80 ticks and grows as it flies, so without a cap a crowded domain
-     * would hold five times the entity count times eighty of them - thousands of rendered
-     * models for nothing. Past the cap the damage still lands; only the drawing is skipped.
-     */
-    public static final int MAX_LIVE_VISUALS = 40;
-
-    /** Long enough to see the arc, short enough that it is gone before the next strike. */
-    public static final int VISUAL_LIFETIME_TICKS = 5;
 
     private static final ResourceLocation BLOOD_SLASH_ID =
             ResourceLocation.fromNamespaceAndPath("irons_spellbooks", "blood_slash");
@@ -117,10 +119,25 @@ public final class CrimsonSlash {
         return Math.max(1, Math.min(domainLevel + LEVEL_BONUS, slashMaxLevel));
     }
 
-    /** How many strikes land on a given domain tick. One, or two on every other tick. */
+    /** How many strikes land on a given domain tick. */
     public static int hitsForTick(int domainTick) {
-        return HITS_PER_TICK
-                + (Math.floorMod(domainTick, EXTRA_HIT_EVERY_TICKS) == 0 ? 1 : 0);
+        return HITS_PER_TICK;
+    }
+
+    /**
+     * How many times a per-second allowance may be spent on a given tick.
+     *
+     * A second is twenty ticks, so an allowance that does not divide evenly - thirty, or fifty -
+     * has to be spread rather than divided. Whole spends go on every tick and the remainder goes
+     * on the first ticks of each second, which lands exactly on the requested rate over any
+     * whole second and never bunches the leftovers into one tick.
+     *
+     * Kept as arithmetic so the rates can be tested instead of counted by hand.
+     */
+    public static int allocationsThisTick(int perSecond, int domainTick) {
+        int everyTick = perSecond / 20;
+        int remainder = perSecond % 20;
+        return everyTick + (Math.floorMod(domainTick, 20) < remainder ? 1 : 0);
     }
 
     /**
@@ -166,21 +183,23 @@ public final class CrimsonSlash {
     }
 
     /**
-     * Spawns the slash arc on the victim.
+     * Spatters blood on the victim.
      *
-     * Aimed in a random horizontal direction, because the point is the arc appearing on the
-     * entity, not a projectile arriving from anywhere in particular. Damage is left at zero.
+     * Emitted directly rather than left to a projectile. The Blood Slash projectile used to be
+     * both the damage and the blood, but the damage is applied here, and now that the visible
+     * slash is a line rather than that projectile the only thing it was still contributing was
+     * this burst - which is a handful of particles at a position, and does not need an entity,
+     * a lifetime, a hitbox and a tick to deliver.
      */
-    public static BloodSlashProjectile spawnVisual(ServerLevel server, LivingEntity caster,
-                                                   LivingEntity victim) {
-        BloodSlashProjectile slash = new BloodSlashProjectile(server, caster);
-        slash.setDamage(0.0F);
-        slash.moveTo(victim.getX(),
+    public static void bloodBurst(ServerLevel server, LivingEntity victim) {
+        server.sendParticles(ParticleHelper.BLOOD,
+                victim.getX(),
                 victim.getY() + victim.getBbHeight() * 0.5D,
-                victim.getZ());
-        double angle = server.random.nextDouble() * Math.PI * 2.0D;
-        slash.shoot(new Vec3(Math.cos(angle), 0.0D, Math.sin(angle)));
-        server.addFreshEntity(slash);
-        return slash;
+                victim.getZ(),
+                BLOOD_PARTICLES_PER_BURST,
+                victim.getBbWidth() * 0.4D,
+                victim.getBbHeight() * 0.4D,
+                victim.getBbWidth() * 0.4D,
+                0.0D);
     }
 }

@@ -50,17 +50,6 @@ public final class SlashStreaks {
     /** Blocks per tick. Roughly doubled, so the slashes cross the space rather than drift. */
     private static final double SPEED = 2.2D;
 
-    /** Emitted every tick: the density is the part that reads as activity. */
-    private static final int SPAWN_INTERVAL_TICKS = 1;
-
-    /**
-     * How many streaks each spawn produces.
-     *
-     * Three, as raised to previously, and the life shortened instead so the count alive at once
-     * stays near what it was - twelve rather than fifteen.
-     */
-    private static final int BATCH = 3;
-
     /** Roughly one streak in three is red; the rest are white. */
     private static final double RED_CHANCE = 0.35D;
 
@@ -80,7 +69,6 @@ public final class SlashStreaks {
             new DustParticleOptions(new Vector3f(1.0F, 0.12F, 0.18F), 1.3F);
 
     private final List<Streak> streaks = new ArrayList<>();
-    private int spawnCooldown;
     private int spawned;
 
     private record Streak(Vec3 position, Vec3 velocity, int ticksLeft, ParticleOptions particle) {
@@ -96,22 +84,16 @@ public final class SlashStreaks {
     }
 
     /**
-     * Advances every streak by one tick, emitting as it goes, and starts new ones on the
-     * interval.
+     * Advances every streak by one tick, emitting as it goes.
      *
-     * Called once per tick while the domain is finished. Positions are kept inside the sphere by
-     * construction: new streaks start at a random point within {@code radius} of the centre and
-     * are dropped once they leave, rather than being allowed to wander out through the wall.
+     * Spawning is no longer done here. The streaks became the slash's visible effect, so they are
+     * started on the entities being struck, by {@link #spawnAt}, rather than scattered through
+     * the sphere on a timer - see the crimson domain's step for the per-second allowance.
+     *
+     * Positions are kept inside the sphere by construction: a streak is dropped as soon as its
+     * next step would leave, rather than being allowed to wander out through the wall.
      */
-    public void tick(ServerLevel server, Vec3 center, double radius,
-                     java.util.function.Predicate<Vec3> allowed) {
-        if (spawnCooldown-- <= 0) {
-            spawnCooldown = SPAWN_INTERVAL_TICKS;
-            for (int i = 0; i < BATCH; i++) {
-                spawn(server, center, radius, allowed);
-            }
-        }
-
+    public void tick(ServerLevel server, java.util.function.Predicate<Vec3> allowed) {
         if (streaks.isEmpty()) {
             return;
         }
@@ -125,7 +107,6 @@ public final class SlashStreaks {
                         p.x, p.y, p.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             }
             int left = streak.ticksLeft() - 1;
-            // drop it as soon as it would leave the sphere, so nothing is drawn outside the wall
             if (left > 0 && allowed.test(to)) {
                 next.add(new Streak(to, streak.velocity(), left, streak.particle()));
             }
@@ -134,22 +115,13 @@ public final class SlashStreaks {
         streaks.addAll(next);
     }
 
-    private void spawn(ServerLevel server, Vec3 center, double radius,
-                       java.util.function.Predicate<Vec3> allowed) {
-        // start anywhere in the sphere, biased towards the outer half so the slashes are seen
-        // against the wall rather than only in the middle
-        double r = radius * (0.35D + 0.6D * Math.sqrt(server.random.nextDouble()));
-        double theta = server.random.nextDouble() * Math.PI * 2.0D;
-        double phi = Math.acos(2.0D * server.random.nextDouble() - 1.0D);
-        Vec3 start = center.add(
-                r * Math.sin(phi) * Math.cos(theta),
-                r * Math.cos(phi) * 0.85D,
-                r * Math.sin(phi) * Math.sin(theta));
-        if (!allowed.test(start)) {
-            return;
-        }
-
-        // a random direction, which is what makes them read as slashes crossing the space
+    /**
+     * Starts one streak at a position, flying off in a random direction.
+     *
+     * Called on a victim of the crimson domain, so the slash reads as cutting that entity and
+     * carrying on past it, rather than as something crossing the room.
+     */
+    public void spawnAt(ServerLevel server, Vec3 origin) {
         double yaw = server.random.nextDouble() * Math.PI * 2.0D;
         double pitch = (server.random.nextDouble() - 0.5D) * 1.2D;
         Vec3 velocity = new Vec3(
@@ -162,7 +134,7 @@ public final class SlashStreaks {
                 ? RED_STREAK
                 : WHITE_STREAK;
 
-        streaks.add(new Streak(start, velocity, LIFE_TICKS, particle));
+        streaks.add(new Streak(origin, velocity, LIFE_TICKS, particle));
         spawned++;
     }
 }
