@@ -204,6 +204,23 @@ public class DomainEntity extends Entity {
      */
     private static final int AMBIENT_LINES_PER_SECOND = 300;
 
+    /**
+     * Half-angle of the cone the ambient lines are placed in, in degrees.
+     *
+     * Seventy-six degrees of field of view, which is Minecraft's default, so a half-angle of
+     * thirty-eight. The client's actual field of view is a setting the server is never told, so
+     * this is an estimate and the reason the placement is a bias rather than a filter.
+     */
+    private static final double VIEW_CONE_DEGREES = 38.0D;
+
+    /**
+     * How close to the eye a line may be placed, in blocks.
+     *
+     * Four, so nothing spawns in the player's face. At a third of a block wide, a line at arm's
+     * length would fill the screen for its whole life.
+     */
+    private static final double VIEW_MIN_DISTANCE = 4.0D;
+
     /** Strikes landed, reported in the heartbeat so the rate can be checked. */
     private int slashHits;
     /** Blood bursts actually spattered. */
@@ -974,8 +991,73 @@ public class DomainEntity extends Entity {
         return true;
     }
 
-    /** A random point inside the sphere, biased outwards so the lines are seen against the wall. */
+    /**
+     * A point inside the sphere, biased into whatever the caster is looking at.
+     *
+     * Asked for as a way to get more out of fewer lines: the same count spread over the whole
+     * sphere spends most of itself behind the player, so concentrating it in front reads as a much
+     * denser domain for the same cost. That is what pays for the lines being thinner again.
+     *
+     * The server does know the caster's aim - it arrives with the movement packets - so no client
+     * work is needed. Two honest limitations:
+     *
+     *   - the field of view is a client setting, anywhere from thirty to a hundred and ten
+     *     degrees, and the server is not told which. {@link #VIEW_CONE_DEGREES} is a seventy-six
+     *     degree estimate: a player on a very wide setting sees empty edges, one on a narrow
+     *     setting sees lines outside the frame.
+     *   - the aim is up to one tick old, so a fast turn leaves the lines slightly behind where the
+     *     player is now looking. Which is why this stays a bias and not a hard filter - nothing
+     *     is ever placed somewhere that could not have been reached anyway.
+     *
+     * Falls back to the whole sphere when there is no caster to aim from.
+     */
     private Vec3 randomPointInside() {
+        Entity owner = ownerUuid != null && level() instanceof ServerLevel server
+                ? server.getEntity(ownerUuid) : null;
+        if (!(owner instanceof LivingEntity caster)) {
+            return randomPointInSphere();
+        }
+
+        Vec3 look = caster.getLookAngle();
+        if (look.lengthSqr() < 1.0E-6D) {
+            return randomPointInSphere();
+        }
+        look = look.normalize();
+
+        // a direction inside a cone about the aim, cosine weighted so it is even across the cone
+        // rather than clustered along its axis
+        double cosMax = Math.cos(Math.toRadians(VIEW_CONE_DEGREES));
+        double cosTheta = 1.0D - random.nextDouble() * (1.0D - cosMax);
+        double sinTheta = Math.sqrt(Math.max(0.0D, 1.0D - cosTheta * cosTheta));
+        double phi = random.nextDouble() * Math.PI * 2.0D;
+
+        // an orthonormal basis around the aim to build that direction in
+        Vec3 helper = Math.abs(look.y) > 0.99D
+                ? new Vec3(1.0D, 0.0D, 0.0D) : new Vec3(0.0D, 1.0D, 0.0D);
+        Vec3 right = look.cross(helper).normalize();
+        Vec3 up = right.cross(look).normalize();
+        Vec3 direction = look.scale(cosTheta)
+                .add(right.scale(sinTheta * Math.cos(phi)))
+                .add(up.scale(sinTheta * Math.sin(phi)));
+
+        // a distance out along it, kept off the camera and inside the wall
+        double min = Math.min(VIEW_MIN_DISTANCE, radius() * 0.5D);
+        double distance = min + (radius() - 1.0D - min) * Math.sqrt(random.nextDouble());
+        Vec3 eye = caster.position().add(0.0D, caster.getEyeHeight(), 0.0D);
+        Vec3 point = eye.add(direction.scale(distance));
+
+        // the eye is not the sphere's centre, so a point on the boundary can land outside it
+        Vec3 c = center();
+        Vec3 offset = point.subtract(c);
+        double limit = radius() - 0.5D;
+        if (offset.lengthSqr() > limit * limit) {
+            point = c.add(offset.normalize().scale(limit * 0.95D));
+        }
+        return point;
+    }
+
+    /** The unbiased version, for a domain with no caster to aim from. */
+    private Vec3 randomPointInSphere() {
         double r = radius() * (0.35D + 0.6D * Math.sqrt(random.nextDouble()));
         double theta = random.nextDouble() * Math.PI * 2.0D;
         double phi = Math.acos(2.0D * random.nextDouble() - 1.0D);
