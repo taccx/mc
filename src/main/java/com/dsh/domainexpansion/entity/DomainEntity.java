@@ -8,6 +8,7 @@ import com.dsh.domainexpansion.domain.SphereShape;
 import com.dsh.domainexpansion.registry.ModBlocks;
 import com.dsh.domainexpansion.registry.ModEntities;
 import com.dsh.domainexpansion.spell.CrimsonSlash;
+import com.dsh.domainexpansion.spell.SlashStreaks;
 import com.dsh.domainexpansion.spell.SupportSpells;
 import io.redspace.ironsspellbooks.entity.spells.blood_slash.BloodSlashProjectile;
 import com.gametechbc.traveloptics.entity.projectiles.RainfallAoe;
@@ -198,6 +199,9 @@ public class DomainEntity extends Entity {
     private record SlashVisual(BloodSlashProjectile entity, int spawnedAtTick) {
     }
 
+    /** Thin slashes crossing the interior, for the crimson domain. */
+    private final SlashStreaks slashStreaks = new SlashStreaks();
+
     /** Running totals of barrier corrections, so the log can prove the barrier is working. */
     private int barrierHeldInside;
     private int barrierKeptOut;
@@ -318,7 +322,12 @@ public class DomainEntity extends Entity {
     }
 
     public boolean contains(Entity entity) {
-        return entity.position().distanceToSqr(center()) <= radius() * radius();
+        return containsPoint(entity.position());
+    }
+
+    /** The same test for a bare position, used by the streak particles. */
+    public boolean containsPoint(Vec3 position) {
+        return position.distanceToSqr(center()) <= radius() * radius();
     }
 
     @Override
@@ -378,6 +387,9 @@ public class DomainEntity extends Entity {
         if (buildComplete) {
             if (kind.hasCrimsonSlash() && lifeTicks % CrimsonSlash.INTERVAL_TICKS == 0) {
                 crimsonSlashStep(server);
+            }
+            if (kind.hasSlashStreaks()) {
+                slashStreaks.tick(server, center(), radius(), this::containsPoint);
             }
             guideProjectiles(server);
             emitBoundaryParticles(server);

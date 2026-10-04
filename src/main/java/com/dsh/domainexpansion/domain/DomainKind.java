@@ -74,6 +74,16 @@ public enum DomainKind {
     }
 
     /**
+     * Whether thin slashes streak across the inside of the sphere.
+     *
+     * Crimson only, because that is where it was asked for. Turning it on for Aqua is this one
+     * line - {@code SlashStreaks} has no opinion about which domain it is drawing in.
+     */
+    public boolean hasSlashStreaks() {
+        return this == CRIMSON;
+    }
+
+    /**
      * The motes drawn along the finished wall.
      *
      * Per-kind rather than fixed, which is a fix rather than a flourish: the Aqua wall's water
