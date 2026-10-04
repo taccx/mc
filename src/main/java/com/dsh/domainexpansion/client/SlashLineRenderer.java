@@ -14,16 +14,18 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
 /**
- * Draws a slash line as one textured quad, oriented by the entity's own rotation.
+ * Draws a slash line as two textured quads: a wide soft halo, then the line itself on top.
  *
  * The shape of this is taken from traveloptics' GyroSlashVisualRenderer, which solved the same
- * problem - a long thin streak that has to lie along an arbitrary direction. Reading it is what
- * pointed at the right approach after two attempts at drawing lines out of particles. The
- * differences are that the texture is ours, so there is a red one as well as a white, and that
- * the line fades out and stretches over its life instead of switching between animation frames.
+ * problem - a long thin streak lying along an arbitrary direction - and reading it is what
+ * pointed at this approach after two attempts at drawing lines out of particles.
  *
- * The quad is built by hand rather than from a model: four vertices, full texture, drawn at full
- * brightness with no overlay, in a translucent render type so the fade works.
+ * Two passes rather than one is what gives the edges something to glow from. The halo is drawn
+ * at well over twice the thickness and tinted per variant, so a red line has a red bleed around
+ * it and white has a cold one. Both passes are emissive, which means full brightness regardless
+ * of the light level and, under a shader pack, something for the bloom to pick up.
+ *
+ * The quad is built by hand rather than from a model: four vertices, full texture, no overlay.
  */
 public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
 
@@ -33,6 +35,15 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
     private static final ResourceLocation RED =
             ResourceLocation.fromNamespaceAndPath(
                     "domain_expansion", "textures/entity/slash_line/slash_line_red.png");
+    private static final ResourceLocation GLOW =
+            ResourceLocation.fromNamespaceAndPath(
+                    "domain_expansion", "textures/entity/slash_line/slash_line_glow.png");
+
+    /** How much wider than the line the halo is drawn. */
+    private static final float GLOW_SCALE = 2.6F;
+
+    /** The halo's opacity, kept low so it reads as a bleed rather than as a second line. */
+    private static final float GLOW_ALPHA = 0.55F;
 
     public SlashLineRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -49,6 +60,9 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
         float fade = 1.0F - progress * progress;
         float half = entity.length() * 0.5F * grow;
         float alpha = Math.max(0.0F, fade);
+        if (alpha <= 0.01F) {
+            return;
+        }
 
         poseStack.pushPose();
         poseStack.mulPose(Axis.YP.rotationDegrees(90.0F - entity.getYRot()));
@@ -56,24 +70,40 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
         // a fixed roll per entity, so lines crossing the view are not all edge-on
         poseStack.mulPose(Axis.ZP.rotationDegrees((entity.getId() * 37) % 360));
 
-        Matrix4f matrix = poseStack.last().pose();
-        Matrix3f normal = poseStack.last().normal();
-        VertexConsumer consumer = buffers.getBuffer(RenderType.entityTranslucent(texture(entity)));
-
         float thickness = entity.getDimensions(entity.getPose()).height * 0.5F;
-        vertex(consumer, matrix, normal, -half, thickness, 0.0F, 0.0F, alpha);
-        vertex(consumer, matrix, normal, half, thickness, 1.0F, 0.0F, alpha);
-        vertex(consumer, matrix, normal, half, -thickness, 1.0F, 1.0F, alpha);
-        vertex(consumer, matrix, normal, -half, -thickness, 0.0F, 1.0F, alpha);
+        boolean red = entity.variant() == 1;
+
+        // halo first, so the line draws over it
+        quad(buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)),
+                poseStack, half * 1.04F, thickness * GLOW_SCALE,
+                red ? 1.0F : 0.82F, red ? 0.18F : 0.90F, red ? 0.24F : 1.0F,
+                alpha * GLOW_ALPHA);
+
+        // then the line
+        quad(buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? RED : WHITE)),
+                poseStack, half, thickness, 1.0F, 1.0F, 1.0F, alpha);
 
         poseStack.popPose();
         super.render(entity, entityYaw, partialTick, poseStack, buffers, packedLight);
     }
 
+    /** One quad, centred, spanning the full texture. */
+    private static void quad(VertexConsumer consumer, PoseStack poseStack,
+                             float halfLength, float halfThickness,
+                             float red, float green, float blue, float alpha) {
+        Matrix4f matrix = poseStack.last().pose();
+        Matrix3f normal = poseStack.last().normal();
+        vertex(consumer, matrix, normal, -halfLength, halfThickness, 0.0F, 0.0F, red, green, blue, alpha);
+        vertex(consumer, matrix, normal, halfLength, halfThickness, 1.0F, 0.0F, red, green, blue, alpha);
+        vertex(consumer, matrix, normal, halfLength, -halfThickness, 1.0F, 1.0F, red, green, blue, alpha);
+        vertex(consumer, matrix, normal, -halfLength, -halfThickness, 0.0F, 1.0F, red, green, blue, alpha);
+    }
+
     private static void vertex(VertexConsumer consumer, Matrix4f matrix, Matrix3f normal,
-                               float x, float y, float u, float v, float alpha) {
+                               float x, float y, float u, float v,
+                               float red, float green, float blue, float alpha) {
         consumer.vertex(matrix, x, y, 0.0F)
-                .color(1.0F, 1.0F, 1.0F, alpha)
+                .color(red, green, blue, alpha)
                 .uv(u, v)
                 .overlayCoords(OverlayTexture.NO_OVERLAY)
                 .uv2(15728880)
@@ -81,12 +111,8 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
                 .endVertex();
     }
 
-    private static ResourceLocation texture(SlashLineEntity entity) {
-        return entity.variant() == 1 ? RED : WHITE;
-    }
-
     @Override
     public ResourceLocation getTextureLocation(SlashLineEntity entity) {
-        return texture(entity);
+        return entity.variant() == 1 ? RED : WHITE;
     }
 }

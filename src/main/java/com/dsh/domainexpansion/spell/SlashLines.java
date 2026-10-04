@@ -28,7 +28,7 @@ public final class SlashLines {
      * with a life of eight ticks, up to two hundred a second can be started. Past the ceiling new
      * lines are dropped and counted.
      */
-    public static final int MAX_LIVE_LINES = 80;
+    public static final int MAX_LIVE_LINES = 70;
 
     /** The two colours, as the entity's variant. */
     public static final int WHITE = 0;
@@ -49,8 +49,8 @@ public final class SlashLines {
      * stub, not a slash - at this weight the lines need to be long enough to read as streaks
      * crossing the sphere, which is also what the reference does.
      */
-    private static final float MIN_LENGTH = 8.0F;
-    private static final float MAX_LENGTH = 20.0F;
+    private static final float MIN_LENGTH = 20.0F;
+    private static final float MAX_LENGTH = 45.0F;
 
     private SlashLines() {
     }

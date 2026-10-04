@@ -196,7 +196,7 @@ public class DomainEntity extends Entity {
      * Six, up from two, which was reported as too sparse to read as a domain full of slashes.
      * They share {@link SlashLines#MAX_LIVE_LINES} with the per-victim lines.
      */
-    private static final int AMBIENT_LINES_PER_TICK = 6;
+    private static final int AMBIENT_LINES_PER_TICK = 10;
 
     /** Strikes landed, reported in the heartbeat so the rate can be checked. */
     private int slashHits;
