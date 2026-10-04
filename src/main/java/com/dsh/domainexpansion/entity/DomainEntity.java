@@ -182,22 +182,22 @@ public class DomainEntity extends Entity {
     private final Set<UUID> captured = new HashSet<>();
 
     /**
-     * Thin slashes crossing the interior, for the crimson domain.
-     *
-     * These are the crimson slash's visible effect - started on the victims, not scattered
-     * through the sphere - so the class holds no spawning timer of its own.
+     * Thin slashes, for the crimson domain: the slash's visible effect on the entities being cut,
+     * plus an ambient layer scattered through the sphere. The class holds the live-count ceiling
+     * that both share.
      */
     private final SlashStreaks slashStreaks = new SlashStreaks();
 
-    /** Rotates which victim the budgeted effects land on, so a crowd is not drawn unevenly. */
-    private int slashRotation;
-
     /** Strikes landed, reported in the heartbeat so the rate can be checked. */
     private int slashHits;
-    /** Blood bursts actually spattered, against the per-second allowance. */
+    /** Blood bursts actually spattered. */
     private int bloodBursts;
-    /** Slash lines actually started, against the per-second allowance. */
+    /** Blood bursts dropped by the global per-tick ceiling. */
+    private int bloodBurstsSkipped;
+    /** Slash lines actually started. */
     private int slashStreakSpawns;
+    /** Slash lines dropped because the live ceiling was reached. */
+    private int slashStreakSkipped;
 
     /** Running totals of barrier corrections, so the log can prove the barrier is working. */
     private int barrierHeldInside;
@@ -369,9 +369,10 @@ public class DomainEntity extends Entity {
 
         if (lifeTicks % 100 == 0) {
             LOGGER.info("[DomainExpansion] t={}s phase={} r={} y={} written={} captured={} guided={}"
-                            + " slashes={} blood={} streaks={}",
+                            + " slashes={} blood={}(+{} capped) streaks={}(+{} capped)",
                     lifeTicks / 20, phase, currentRadius, currentVerticalY, originalBlocks.size(),
-                    captured.size(), projectilesGuided, slashHits, bloodBursts, slashStreakSpawns);
+                    captured.size(), projectilesGuided, slashHits, bloodBursts, bloodBurstsSkipped,
+                    slashStreakSpawns, slashStreakSkipped);
         }
 
         if (lifeTicks % PERIODIC_INTERVAL == 0) {
@@ -385,8 +386,9 @@ public class DomainEntity extends Entity {
         if (buildComplete) {
             if (kind.hasCrimsonSlash()) {
                 crimsonSlashStep(server);
-                // after the step, so a line started this tick emits its first dots this tick
-                slashStreaks.tick(server, this::containsPoint);
+                // after the step, so a line started this tick emits its first dots this tick;
+                // also draws the ambient layer, which runs whether or not anything is inside
+                slashStreaks.tick(server, center(), radius(), this::containsPoint);
             }
             guideProjectiles(server);
             emitBoundaryParticles(server);
@@ -874,15 +876,18 @@ public class DomainEntity extends Entity {
      * clears that victim's hurt cooldown immediately before damaging them: a shared hit would
      * put every entity in the sphere on the same invulnerability timer and collapse the rate.
      *
-     * The two visible effects are budgeted per second rather than per strike, because a hundred
+     * The two visible effects are budgeted per second <em>per victim</em>, because a hundred
      * strikes a second is far more than either is worth drawing for:
      *
-     *   - blood, {@link CrimsonSlash#BLOOD_PER_SECOND}, spattered on the victim;
-     *   - slash lines, {@link CrimsonSlash#STREAKS_PER_SECOND}, started on the victim and flying
-     *     off, which replaced the Blood Slash projectile as the visible slash.
+     *   - blood, {@link CrimsonSlash#BLOOD_PER_VICTIM_PER_SECOND}, spattered on the victim;
+     *   - slash lines, {@link CrimsonSlash#LINES_PER_VICTIM_PER_SECOND}, started on the victim
+     *     and flying off, which replaced the Blood Slash projectile as the visible slash.
      *
-     * Both allowances are spread over the victims in turn rather than always landing on whichever
-     * one happens to be first, so a crowd is not drawn as one entity bleeding and the rest not.
+     * Both allowances are therefore per entity, as asked, and both are backed by a global ceiling
+     * - {@link CrimsonSlash#MAX_BLOOD_BURSTS_PER_TICK} and {@link SlashStreaks#MAX_LIVE_STREAKS} -
+     * because a per-victim rate multiplied by a sphere full of entities is not a number the
+     * client can draw. The wall's ambient lines share the line ceiling and are drawn regardless
+     * of whether anything is inside to be cut.
      *
      * See {@link CrimsonSlash} for why the damage carries no attacker, and why only some strikes
      * are allowed to make a sound.
@@ -911,28 +916,42 @@ public class DomainEntity extends Entity {
         int hits = CrimsonSlash.hitsForTick(lifeTicks);
         boolean audibleTick = lifeTicks % CrimsonSlash.AUDIBLE_EVERY_TICKS == 0;
         float damage = CrimsonSlash.damage(spellLevel, caster);
+
+        // per victim, not per tick: each entity gets its own allowance
+        int bloodPerVictim = CrimsonSlash.allocationsThisTick(
+                CrimsonSlash.BLOOD_PER_VICTIM_PER_SECOND, lifeTicks);
+        int linesPerVictim = CrimsonSlash.allocationsThisTick(
+                CrimsonSlash.LINES_PER_VICTIM_PER_SECOND, lifeTicks);
+        int bloodSpent = 0;
+
         for (LivingEntity victim : victims) {
             for (int hit = 0; hit < hits; hit++) {
                 // one sound per audible tick across all of them, not one per blow
                 CrimsonSlash.strike(server, victim, damage, audibleTick && hit == 0);
                 slashHits++;
             }
-        }
 
-        int blood = CrimsonSlash.allocationsThisTick(CrimsonSlash.BLOOD_PER_SECOND, lifeTicks);
-        for (int i = 0; i < blood; i++) {
-            CrimsonSlash.bloodBurst(server, victims.get(slashRotation++ % victims.size()));
-            bloodBursts++;
-        }
+            for (int i = 0; i < bloodPerVictim; i++) {
+                if (bloodSpent >= CrimsonSlash.MAX_BLOOD_BURSTS_PER_TICK) {
+                    bloodBurstsSkipped++;
+                    continue;
+                }
+                CrimsonSlash.bloodBurst(server, victim);
+                bloodSpent++;
+                bloodBursts++;
+            }
 
-        int streaks = CrimsonSlash.allocationsThisTick(CrimsonSlash.STREAKS_PER_SECOND, lifeTicks);
-        for (int i = 0; i < streaks; i++) {
-            LivingEntity victim = victims.get(slashRotation++ % victims.size());
-            slashStreaks.spawnAt(server, new Vec3(
-                    victim.getX(),
-                    victim.getY() + victim.getBbHeight() * 0.5D,
-                    victim.getZ()));
-            slashStreakSpawns++;
+            for (int i = 0; i < linesPerVictim; i++) {
+                if (!slashStreaks.spawnAt(server, new Vec3(
+                        victim.getX(),
+                        victim.getY() + victim.getBbHeight() * 0.5D,
+                        victim.getZ()))) {
+                    slashStreakSkipped++;
+                    // cap reached: no point asking for the rest of this victim's allowance
+                    break;
+                }
+                slashStreakSpawns++;
+            }
         }
     }
 

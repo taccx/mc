@@ -61,24 +61,36 @@ public final class CrimsonSlash {
     public static final double HITS_PER_SECOND = 20.0D * HITS_PER_TICK;
 
     /**
-     * Blood bursts a second, at most.
+     * Blood bursts a second, at most, <em>per victim</em>.
      *
-     * Asked for as a cap after the rate went up: a hundred strikes a second each spattering
-     * blood would be more particles than the effect is worth. Thirty is a third of the strikes,
-     * which is enough to see that something is bleeding.
+     * Per victim because that is what was asked for the lines, and the same reasoning applies:
+     * each entity being cut should bleed. Thirty a second is a third of the strikes it is taking.
      */
-    public static final int BLOOD_PER_SECOND = 30;
+    public static final int BLOOD_PER_VICTIM_PER_SECOND = 30;
 
     /**
-     * Slash visuals a second, at most - the red and white lines.
+     * Slash lines a second, at most, <em>per victim</em> - the red and white lines.
      *
-     * These replaced the Blood Slash projectile as the visible slash. Fifty a second, as asked,
-     * against the sixty the ambient lines were spawning before, so this is a slight reduction in
-     * what gets drawn rather than an increase.
+     * These replaced the Blood Slash projectile as the visible slash, and are started on the
+     * victim so they read as cutting it. Fifty a second each was asked for explicitly, and
+     * clarified as per entity rather than in total.
+     *
+     * That means the total scales with how many entities are inside, which is why there is a
+     * global cap on top - see {@link #MAX_BLOOD_BURSTS_PER_TICK} for blood and
+     * {@link SlashStreaks#MAX_LIVE_STREAKS} for the lines. Eighteen entities, which is what one
+     * of the test runs captured, would otherwise be nine hundred lines a second.
      */
-    public static final int STREAKS_PER_SECOND = 50;
+    public static final int LINES_PER_VICTIM_PER_SECOND = 50;
 
-    /** Particles in one blood burst. Small, because there are thirty bursts a second. */
+    /**
+     * A ceiling on blood bursts in one tick, across every victim.
+     *
+     * Eight, which is a hundred and sixty a second - roughly five victims' worth. Beyond that
+     * the bursts are skipped and counted rather than drawn; the damage is untouched.
+     */
+    public static final int MAX_BLOOD_BURSTS_PER_TICK = 8;
+
+    /** Particles in one blood burst. Small, because there are thirty a second per victim. */
     public static final int BLOOD_PARTICLES_PER_BURST = 10;
 
     /**

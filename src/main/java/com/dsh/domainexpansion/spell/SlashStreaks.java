@@ -54,6 +54,27 @@ public final class SlashStreaks {
     private static final double RED_CHANCE = 0.35D;
 
     /**
+     * A ceiling on how many lines may exist at once, across the ambient ones and every victim's
+     * slash lines together.
+     *
+     * The slash lines are allowed fifty a second <em>per victim</em>, so the total grows with the
+     * number of entities in the sphere - and eighteen entities, which one test run captured, would
+     * be nine hundred a second and tens of thousands of particles. Thirty alive at once works out
+     * at roughly a hundred and fifty a second, which is a handful of entities' worth, and past
+     * that new lines are simply not started. Nothing about the damage depends on them.
+     */
+    public static final int MAX_LIVE_STREAKS = 30;
+
+    /**
+     * The ambient layer: lines started in the sphere on a timer, regardless of whether anything
+     * is being cut, so an empty domain still has something moving in it.
+     *
+     * Two a tick, against the three that were tuned up to previously. The rest of the budget goes
+     * to the slash lines now, and they share the same cap above.
+     */
+    private static final int AMBIENT_PER_TICK = 2;
+
+    /**
      * Both colours are dust rather than a named particle type.
      *
      * Dust takes a scale, which is why it is used here: at 1.3 the dots are wide enough to close
@@ -84,16 +105,21 @@ public final class SlashStreaks {
     }
 
     /**
-     * Advances every streak by one tick, emitting as it goes.
+     * Advances every streak by one tick, emitting as it goes, and starts the ambient layer.
      *
-     * Spawning is no longer done here. The streaks became the slash's visible effect, so they are
-     * started on the entities being struck, by {@link #spawnAt}, rather than scattered through
-     * the sphere on a timer - see the crimson domain's step for the per-second allowance.
+     * The ambient lines are scattered through the sphere on the timer below, biased towards the
+     * outer half so they are seen against the wall rather than only in the middle. The slash
+     * lines are not started here - they come from {@link #spawnAt}, on the entities being cut.
      *
      * Positions are kept inside the sphere by construction: a streak is dropped as soon as its
      * next step would leave, rather than being allowed to wander out through the wall.
      */
-    public void tick(ServerLevel server, java.util.function.Predicate<Vec3> allowed) {
+    public void tick(ServerLevel server, Vec3 center, double radius,
+                     java.util.function.Predicate<Vec3> allowed) {
+        for (int i = 0; i < AMBIENT_PER_TICK; i++) {
+            spawnAmbient(server, center, radius, allowed);
+        }
+
         if (streaks.isEmpty()) {
             return;
         }
@@ -119,22 +145,49 @@ public final class SlashStreaks {
      * Starts one streak at a position, flying off in a random direction.
      *
      * Called on a victim of the crimson domain, so the slash reads as cutting that entity and
-     * carrying on past it, rather than as something crossing the room.
+     * carrying on past it. Returns false when the cap is already reached, so the caller can count
+     * what was dropped rather than quietly losing it.
      */
-    public void spawnAt(ServerLevel server, Vec3 origin) {
+    public boolean spawnAt(ServerLevel server, Vec3 origin) {
+        if (streaks.size() >= MAX_LIVE_STREAKS) {
+            return false;
+        }
+        streaks.add(new Streak(origin, randomVelocity(server), LIFE_TICKS, randomParticle(server)));
+        spawned++;
+        return true;
+    }
+
+    private void spawnAmbient(ServerLevel server, Vec3 center, double radius,
+                              java.util.function.Predicate<Vec3> allowed) {
+        if (streaks.size() >= MAX_LIVE_STREAKS) {
+            return;
+        }
+        double r = radius * (0.35D + 0.6D * Math.sqrt(server.random.nextDouble()));
+        double theta = server.random.nextDouble() * Math.PI * 2.0D;
+        double phi = Math.acos(2.0D * server.random.nextDouble() - 1.0D);
+        Vec3 start = center.add(
+                r * Math.sin(phi) * Math.cos(theta),
+                r * Math.cos(phi) * 0.85D,
+                r * Math.sin(phi) * Math.sin(theta));
+        if (!allowed.test(start)) {
+            return;
+        }
+        streaks.add(new Streak(start, randomVelocity(server), LIFE_TICKS, randomParticle(server)));
+        spawned++;
+    }
+
+    /** A random direction and the standard speed, which is what makes a line read as a slash. */
+    private static Vec3 randomVelocity(ServerLevel server) {
         double yaw = server.random.nextDouble() * Math.PI * 2.0D;
         double pitch = (server.random.nextDouble() - 0.5D) * 1.2D;
-        Vec3 velocity = new Vec3(
+        return new Vec3(
                 Math.cos(pitch) * Math.cos(yaw),
                 Math.sin(pitch),
                 Math.cos(pitch) * Math.sin(yaw)).scale(SPEED);
+    }
 
-        // one colour for the whole streak, decided once
-        ParticleOptions particle = server.random.nextDouble() < RED_CHANCE
-                ? RED_STREAK
-                : WHITE_STREAK;
-
-        streaks.add(new Streak(origin, velocity, LIFE_TICKS, particle));
-        spawned++;
+    /** One colour for a whole streak, decided once - never mixed along a single line. */
+    private static ParticleOptions randomParticle(ServerLevel server) {
+        return server.random.nextDouble() < RED_CHANCE ? RED_STREAK : WHITE_STREAK;
     }
 }

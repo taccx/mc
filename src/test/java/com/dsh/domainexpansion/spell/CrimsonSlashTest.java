@@ -93,12 +93,12 @@ class CrimsonSlashTest {
     @DisplayName("the per-second allowances land exactly, and are spread rather than bunched")
     void allowancesAreSpread() {
         // thirty and fifty do not divide into twenty ticks, so both need spreading
-        assertEquals(30, sumOverOneSecond(CrimsonSlash.BLOOD_PER_SECOND));
-        assertEquals(50, sumOverOneSecond(CrimsonSlash.STREAKS_PER_SECOND));
+        assertEquals(30, sumOverOneSecond(CrimsonSlash.BLOOD_PER_VICTIM_PER_SECOND));
+        assertEquals(50, sumOverOneSecond(CrimsonSlash.LINES_PER_VICTIM_PER_SECOND));
 
         // and no tick may spend more than one over the whole-tick share, which is what "spread"
         // means: the remainder must not all land on the same tick
-        for (int perSecond : new int[]{CrimsonSlash.BLOOD_PER_SECOND, CrimsonSlash.STREAKS_PER_SECOND}) {
+        for (int perSecond : new int[]{CrimsonSlash.BLOOD_PER_VICTIM_PER_SECOND, CrimsonSlash.LINES_PER_VICTIM_PER_SECOND}) {
             int everyTick = perSecond / 20;
             int max = 0;
             for (int tick = 0; tick < 20; tick++) {
