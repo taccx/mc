@@ -87,13 +87,18 @@ public final class CrimsonSlash {
     /**
      * A ceiling on blood bursts in one tick, across every victim.
      *
-     * Eight, which is a hundred and sixty a second - roughly five victims' worth. Beyond that
-     * the bursts are skipped and counted rather than drawn; the damage is untouched.
+     * Twelve, which is two hundred and forty a second - roughly eight victims' worth. Beyond
+     * that the bursts are skipped and counted rather than drawn; the damage is untouched.
      */
-    public static final int MAX_BLOOD_BURSTS_PER_TICK = 8;
+    public static final int MAX_BLOOD_BURSTS_PER_TICK = 12;
 
-    /** Particles in one blood burst. Small, because there are thirty a second per victim. */
-    public static final int BLOOD_PARTICLES_PER_BURST = 10;
+    /**
+     * Particles in one blood burst.
+     *
+     * Twenty-four, up from ten. Ten was subtle enough that the blood was reported as missing
+     * entirely, which is a reasonable reading of a spatter you have to look for.
+     */
+    public static final int BLOOD_PARTICLES_PER_BURST = 24;
 
     /**
      * One strike in this many is allowed to make a sound.

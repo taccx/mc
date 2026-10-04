@@ -192,8 +192,11 @@ public class DomainEntity extends Entity {
     /**
      * Lines started in the sphere every tick regardless of whether anything is being cut, so a
      * domain with nothing in it still has something moving across it.
+     *
+     * Six, up from two, which was reported as too sparse to read as a domain full of slashes.
+     * They share {@link SlashLines#MAX_LIVE_LINES} with the per-victim lines.
      */
-    private static final int AMBIENT_LINES_PER_TICK = 2;
+    private static final int AMBIENT_LINES_PER_TICK = 6;
 
     /** Strikes landed, reported in the heartbeat so the rate can be checked. */
     private int slashHits;

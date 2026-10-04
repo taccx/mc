@@ -42,8 +42,15 @@ public final class SlashLines {
      */
     private static final float RED_CHANCE = 0.35F;
 
-    private static final float MIN_LENGTH = 4.0F;
-    private static final float MAX_LENGTH = 11.0F;
+    /**
+     * Line lengths, in blocks.
+     *
+     * Lengthened along with the thickness. A 1.5 block thick line only four blocks long is a
+     * stub, not a slash - at this weight the lines need to be long enough to read as streaks
+     * crossing the sphere, which is also what the reference does.
+     */
+    private static final float MIN_LENGTH = 8.0F;
+    private static final float MAX_LENGTH = 20.0F;
 
     private SlashLines() {
     }

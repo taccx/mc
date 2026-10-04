@@ -40,8 +40,15 @@ public class SlashLineEntity extends Entity {
      */
     public static final int LIFETIME_TICKS = 8;
 
-    /** Thickness of the line, in blocks. Thin, so it reads as a slash rather than as a bar. */
-    private static final float THICKNESS = 0.22F;
+    /**
+     * Thickness of the line, in blocks.
+     *
+     * 1.5, which is roughly seven times the 0.22 it started at. Thin lines were asked to be
+     * thicker by five to ten times once they were seen in play: at 0.22 a line is a hairline
+     * that disappears against a bright background, and the reference the effect is following has
+     * streaks with real weight to them.
+     */
+    private static final float THICKNESS = 1.5F;
 
     public SlashLineEntity(EntityType<? extends SlashLineEntity> type, Level level) {
         super(type, level);
