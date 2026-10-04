@@ -9,7 +9,9 @@ import io.redspace.ironsspellbooks.api.magic.MagicData;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.api.spells.CastSource;
 import io.redspace.ironsspellbooks.api.spells.CastType;
+import io.redspace.ironsspellbooks.api.spells.SpellAnimations;
 import io.redspace.ironsspellbooks.api.spells.SpellRarity;
+import io.redspace.ironsspellbooks.api.util.AnimationHolder;
 import io.redspace.ironsspellbooks.api.util.Utils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -41,6 +43,24 @@ public class DomainExpansionSpell extends AbstractSpell {
             .setCooldownSeconds(DomainConfig.COOLDOWN_SECONDS)
             .build();
 
+    /**
+     * The hand seal played during the wind-up: both arms drawing together over 1.5 seconds and
+     * then holding, shipped as {@code player_animation/domain_seal.json}.
+     *
+     * Iron's own animations were tried first and none of them fits. {@code long_cast}, the
+     * animation Iron's uses for long casts, is five seconds of two poses alternating every half
+     * second - a charging tremor, not hands coming together. {@code self_cast_two_hands} is the
+     * pose wanted at the end, but as a single keyframe: the hands are already together, so
+     * playing it snaps them into place instead of moving them.
+     *
+     * So the animation is authored here, interpolating between two poses Iron's wrote. It
+     * starts from {@code long_cast}'s opening frame and eases into
+     * {@code self_cast_two_hands}'s pose, which keeps both ends of the motion something that
+     * was already known to look right rather than rotations guessed at.
+     */
+    private static final AnimationHolder SEAL_ANIMATION = new AnimationHolder(
+            ResourceLocation.fromNamespaceAndPath("domain_expansion", "domain_seal"), true);
+
     public DomainExpansionSpell() {
         this.baseManaCost = DomainConfig.BASE_MANA_COST;
         this.manaCostPerLevel = DomainConfig.MANA_COST_PER_LEVEL;
@@ -50,13 +70,44 @@ public class DomainExpansionSpell extends AbstractSpell {
     }
 
     /**
-     * Instant: the domain opens the moment the spell is cast, with no wind-up. Iron's
-     * short-circuits {@code getCastTime} for INSTANT casts, so this is the authoritative
-     * "no warm-up" declaration rather than {@code castTime} alone.
+     * Long: the domain does not open the instant the spell is cast. The caster draws their hands
+     * together, holds the seal, and only then does the sphere appear.
+     *
+     * Iron's uses {@code castTime} for this, so {@link DomainConfig#CAST_TIME} is the wind-up in
+     * ticks, and the cast fires by itself when it elapses - the key is pressed once and the
+     * player does not have to keep holding it, which is the difference between LONG and
+     * CONTINUOUS.
      */
     @Override
     public CastType getCastType() {
-        return CastType.INSTANT;
+        return CastType.LONG;
+    }
+
+    /**
+     * The wind-up is pinned to {@link DomainConfig#CAST_TIME} rather than left to
+     * {@code AbstractSpell}'s default, which scales the cast time by the caster's cast-time
+     * reduction attribute.
+     *
+     * The animation is authored for exactly this duration: the arms reach the seal at 1.5s and
+     * hold to 2.0s. Shortening the cast would cut the motion off before the hands ever meet, so
+     * the seal would never be seen complete. Gear that reduces cast time therefore does not
+     * shorten this spell, which is a deliberate trade - the alternative is an animation that
+     * stops half way.
+     */
+    @Override
+    public int getEffectiveCastTime(int spellLevel, LivingEntity entity) {
+        return DomainConfig.CAST_TIME;
+    }
+
+    @Override
+    public AnimationHolder getCastStartAnimation() {
+        return SEAL_ANIMATION;
+    }
+
+    /** The release, once the hands have met and the sphere opens. */
+    @Override
+    public AnimationHolder getCastFinishAnimation() {
+        return SpellAnimations.ANIMATION_LONG_CAST_FINISH;
     }
 
     @Override

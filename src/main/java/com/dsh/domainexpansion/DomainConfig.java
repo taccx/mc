@@ -75,8 +75,20 @@ public final class DomainConfig {
     /** Additional mana per spell level. */
     public static final int MANA_COST_PER_LEVEL = 1000;
 
-    /** Cast time in ticks; the spell also declares itself INSTANT. */
-    public static final int CAST_TIME = 0;
+    /**
+     * The wind-up, in ticks: 40 ticks is the two seconds of the hand seal.
+     *
+     * The animation shipped at {@code player_animation/domain_seal.json} is authored for exactly
+     * this: both arms draw together from 0 to 1.5 seconds, then hold the seal from 1.5 to 2.0,
+     * and the domain opens when the cast completes at 2.0. Changing this number without also
+     * changing the animation will desynchronise the two - a shorter cast cuts the motion off
+     * before the hands meet, a longer one leaves the seal held after the sphere has already
+     * appeared.
+     *
+     * It was 0 for a while, because the original four second wind-up felt slow in play. This is
+     * the user asking for a wind-up back, but one that is worth watching.
+     */
+    public static final int CAST_TIME = 40;
 
     /**
      * Whether spells cast inside the domain are given a target automatically.
