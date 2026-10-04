@@ -15,9 +15,11 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.ChatFormatting;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -733,8 +735,7 @@ public class DomainEntity extends Entity {
         if (titleStage == 0) {
             for (ServerPlayer player : audience(server)) {
                 player.connection.send(new ClientboundSetTitlesAnimationPacket(5, TITLE_NAME_STAY, 10));
-                player.connection.send(new ClientboundSetTitleTextPacket(
-                        Component.translatable("domain_expansion.title.name").withStyle(ChatFormatting.BLUE)));
+                player.connection.send(new ClientboundSetTitleTextPacket(title("domain_expansion.title.name")));
             }
             titleStage = 1;
             return;
@@ -742,12 +743,25 @@ public class DomainEntity extends Entity {
         if (lifeTicks >= TITLE_EPITHET_AT) {
             for (ServerPlayer player : audience(server)) {
                 player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 45, 10));
-                player.connection.send(new ClientboundSetTitleTextPacket(
-                        Component.translatable("domain_expansion.title.epithet").withStyle(ChatFormatting.BLUE)));
+                player.connection.send(new ClientboundSetTitleTextPacket(title("domain_expansion.title.epithet")));
             }
             titleStage = 2;
             LOGGER.info("[DomainExpansion] announced both titles by t={}s", lifeTicks / 20);
         }
+    }
+
+    /**
+     * A title card: blue, and explicitly in the vanilla bitmap font.
+     *
+     * The font is named rather than left to the default because this pack ships ModernUI, which
+     * replaces the interface fonts with smooth ones; asking for {@code minecraft:default}
+     * directly is the only lever a server has over that, and it is the pixel font the title was
+     * asked to use.
+     */
+    private static Component title(String translationKey) {
+        return Component.translatable(translationKey).withStyle(Style.EMPTY
+                .withColor(ChatFormatting.BLUE)
+                .withFont(ResourceLocation.withDefaultNamespace("default")));
     }
 
     /** The caster, plus anyone inside the sphere. */
