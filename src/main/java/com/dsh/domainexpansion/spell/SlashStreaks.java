@@ -17,47 +17,73 @@ import java.util.List;
  * There is no line primitive to draw with - Minecraft's particles are points - so a line is
  * faked the way the game itself fakes them: each streak carries a position and a velocity, and
  * every tick it emits several particles interpolated between where it was and where it now is.
- * With the speed set so those interpolated points land a fifth of a block apart, consecutive
- * dots read as one continuous slash rather than as a row of specks.
  *
- * White and red are mixed per streak. The white is {@code END_ROD}, which is bright and ignores
- * gravity, so it holds a straight line. The red is a coloured dust rather than Iron's blood
- * droplets for the same reason - droplets fall, and a line that sags is not a line.
+ * Getting that to read as a line rather than as a dotted trail is a matter of spacing, and it
+ * took a revision to get right. At 1.1 blocks a tick with three dots the gaps were 0.37 blocks
+ * apart - plainly a dashed trail. Two things fix it together:
+ *
+ *   - eight dots a step at 2.5 blocks a tick, which is a gap of about 0.31 blocks, and
+ *   - larger particles, a dust at scale 1.8 rather than the default, so each dot covers the gap
+ *     rather than leaving a hole between it and the next.
+ *
+ * Enlarging the dots is what makes a dense line affordable: spacing them at a tenth of a block
+ * instead would need three times the particles for the same look.
+ *
+ * Colour is chosen once per streak, not per particle. It was per particle at first, which mixed
+ * white and red along a single line - not what "either white or red" means.
  */
 public final class SlashStreaks {
 
-    /** Sub-positions emitted along each tick's movement. Three keeps the dots touching. */
-    private static final int DOTS_PER_STEP = 3;
-
-    /** A streak lives this long, which is what sets its length. */
-    private static final int LIFE_TICKS = 8;
-
-    /** Blocks per tick. Long enough to look like a slash, short enough to stay inside. */
-    private static final double SPEED = 1.1D;
-
     /**
-     * Emitted every tick, so the effect stays continuous without flooding the client.
+     * Sub-positions emitted along each tick's movement.
      *
-     * Was every other tick with a batch of two - one streak a tick. Raising it to three a tick
-     * was asked for after seeing it in game: the density is the part that reads as activity, and
-     * three a tick costs nine particles against the sixty the wall already spends.
+     * Fifteen, which against the speed below puts the dots 0.15 of a block apart. This is the
+     * number that makes it a line: at three dots with the old speed the gaps were 0.37 blocks
+     * and the result read as a dashed trail. Enlarging the particles alone was not enough - the
+     * spacing is what the eye picks up - so the count went up fivefold and the cost with it.
      */
+    private static final int DOTS_PER_STEP = 15;
+
+    /** A streak lives this long; with the speed, this sets the length of the line. */
+    private static final int LIFE_TICKS = 4;
+
+    /** Blocks per tick. Roughly doubled, so the slashes cross the space rather than drift. */
+    private static final double SPEED = 2.2D;
+
+    /** Emitted every tick: the density is the part that reads as activity. */
     private static final int SPAWN_INTERVAL_TICKS = 1;
 
-    /** How many streaks each spawn produces. */
+    /**
+     * How many streaks each spawn produces.
+     *
+     * Three, as raised to previously, and the life shortened instead so the count alive at once
+     * stays near what it was - twelve rather than fifteen.
+     */
     private static final int BATCH = 3;
 
     /** Roughly one streak in three is red; the rest are white. */
     private static final double RED_CHANCE = 0.35D;
 
-    private static final ParticleOptions RED_DUST =
-            new DustParticleOptions(new Vector3f(1.0F, 0.12F, 0.18F), 0.75F);
+    /**
+     * Both colours are dust rather than a named particle type.
+     *
+     * Dust takes a scale, which is why it is used here: at 1.3 the dots are wide enough to close
+     * a 0.15 block gap without turning into blobs, so the line stays thin. Dust also ignores
+     * gravity, which the alternative - Iron's blood droplets - does not, and a line that sags is
+     * not a line. END_ROD was used for white before, but it takes no scale and so cannot be
+     * widened to meet its neighbours.
+     */
+    private static final ParticleOptions WHITE_STREAK =
+            new DustParticleOptions(new Vector3f(1.0F, 1.0F, 1.0F), 1.3F);
+
+    private static final ParticleOptions RED_STREAK =
+            new DustParticleOptions(new Vector3f(1.0F, 0.12F, 0.18F), 1.3F);
 
     private final List<Streak> streaks = new ArrayList<>();
     private int spawnCooldown;
     private int spawned;
 
-    private record Streak(Vec3 position, Vec3 velocity, int ticksLeft) {
+    private record Streak(Vec3 position, Vec3 velocity, int ticksLeft, ParticleOptions particle) {
     }
 
     /** Total streaks started, for the heartbeat. */
@@ -95,14 +121,13 @@ public final class SlashStreaks {
             Vec3 to = from.add(streak.velocity());
             for (int i = 1; i <= DOTS_PER_STEP; i++) {
                 Vec3 p = from.lerp(to, (double) i / DOTS_PER_STEP);
-                server.sendParticles(
-                        server.random.nextDouble() < RED_CHANCE ? RED_DUST : ParticleTypes.END_ROD,
+                server.sendParticles(streak.particle(),
                         p.x, p.y, p.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             }
             int left = streak.ticksLeft() - 1;
             // drop it as soon as it would leave the sphere, so nothing is drawn outside the wall
             if (left > 0 && allowed.test(to)) {
-                next.add(new Streak(to, streak.velocity(), left));
+                next.add(new Streak(to, streak.velocity(), left, streak.particle()));
             }
         }
         streaks.clear();
@@ -132,7 +157,12 @@ public final class SlashStreaks {
                 Math.sin(pitch),
                 Math.cos(pitch) * Math.sin(yaw)).scale(SPEED);
 
-        streaks.add(new Streak(start, velocity, LIFE_TICKS));
+        // one colour for the whole streak, decided once
+        ParticleOptions particle = server.random.nextDouble() < RED_CHANCE
+                ? RED_STREAK
+                : WHITE_STREAK;
+
+        streaks.add(new Streak(start, velocity, LIFE_TICKS, particle));
         spawned++;
     }
 }
