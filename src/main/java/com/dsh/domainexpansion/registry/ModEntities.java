@@ -2,6 +2,7 @@ package com.dsh.domainexpansion.registry;
 
 import com.dsh.domainexpansion.DomainExpansion;
 import com.dsh.domainexpansion.entity.DomainEntity;
+import com.dsh.domainexpansion.entity.SlashLineEntity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.registries.DeferredRegister;
@@ -9,7 +10,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 
 /**
- * Entity type registration for the domain itself.
+ * Entity type registration: the domain itself, and the slash lines it draws.
  */
 public final class ModEntities {
 
@@ -30,4 +31,22 @@ public final class ModEntities {
                     .noSummon()
                     .fireImmune()
                     .build("domain"));
+
+    /**
+     * A slash line: a textured quad and nothing else.
+     *
+     * The tracking range covers the whole sphere, since a line anywhere inside it should be
+     * drawn. Updates are slow because the entity never moves - the renderer animates it from its
+     * own age, which both sides count independently, so no per-tick packets are needed.
+     */
+    public static final RegistryObject<EntityType<SlashLineEntity>> SLASH_LINE =
+            ENTITIES.register("slash_line", () -> EntityType.Builder
+                    .<SlashLineEntity>of(SlashLineEntity::new, MobCategory.MISC)
+                    .sized(8.0F, 0.22F)
+                    .clientTrackingRange(32)
+                    .updateInterval(20)
+                    .noSummon()
+                    .fireImmune()
+                    .noSave()
+                    .build("slash_line"));
 }

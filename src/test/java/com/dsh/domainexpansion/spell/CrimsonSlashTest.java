@@ -79,14 +79,26 @@ class CrimsonSlashTest {
     }
 
     @Test
-    @DisplayName("exactly a hundred strikes land in a second")
-    void hundredStrikesASecond() {
+    @DisplayName("exactly thirty strikes land in a second")
+    void thirtyStrikesASecond() {
         int total = 0;
         for (int tick = 0; tick < 20; tick++) {
             total += CrimsonSlash.hitsForTick(tick);
         }
-        assertEquals(100, total, "a second of domain ticks did not produce a hundred strikes");
-        assertEquals(100.0D, CrimsonSlash.HITS_PER_SECOND, 1.0E-9D);
+        assertEquals(30, total, "a second of domain ticks did not produce thirty strikes");
+        assertEquals(30.0D, CrimsonSlash.HITS_PER_SECOND, 1.0E-9D);
+    }
+
+    @Test
+    @DisplayName("the rate alternates one and two, never zero or a burst")
+    void rateAlternates() {
+        for (int tick = 0; tick < 40; tick++) {
+            int hits = CrimsonSlash.hitsForTick(tick);
+            assertTrue(hits >= 1 && hits <= 2, "tick " + tick + " applied " + hits + " strikes");
+        }
+        // and the pattern repeats every two ticks, so the rate cannot drift
+        assertEquals(CrimsonSlash.hitsForTick(0), CrimsonSlash.hitsForTick(2));
+        assertEquals(CrimsonSlash.hitsForTick(1), CrimsonSlash.hitsForTick(3));
     }
 
     @Test

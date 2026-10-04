@@ -7,8 +7,9 @@ import com.dsh.domainexpansion.domain.Guidance;
 import com.dsh.domainexpansion.domain.SphereShape;
 import com.dsh.domainexpansion.registry.ModBlocks;
 import com.dsh.domainexpansion.registry.ModEntities;
+import com.dsh.domainexpansion.entity.SlashLineEntity;
 import com.dsh.domainexpansion.spell.CrimsonSlash;
-import com.dsh.domainexpansion.spell.SlashStreaks;
+import com.dsh.domainexpansion.spell.SlashLines;
 import com.dsh.domainexpansion.spell.SupportSpells;
 import com.gametechbc.traveloptics.entity.projectiles.RainfallAoe;
 import com.gametechbc.traveloptics.entity.projectiles.overflow.FloodPoolEntity;
@@ -182,11 +183,17 @@ public class DomainEntity extends Entity {
     private final Set<UUID> captured = new HashSet<>();
 
     /**
-     * Thin slashes, for the crimson domain: the slash's visible effect on the entities being cut,
-     * plus an ambient layer scattered through the sphere. The class holds the live-count ceiling
-     * that both share.
+     * Slash lines currently alive. The lines are textured entities now rather than particles, so
+     * the domain keeps track of them to hold {@link SlashLines#MAX_LIVE_LINES}; they tick and
+     * expire on their own.
      */
-    private final SlashStreaks slashStreaks = new SlashStreaks();
+    private final List<SlashLineEntity> slashLines = new ArrayList<>();
+
+    /**
+     * Lines started in the sphere every tick regardless of whether anything is being cut, so a
+     * domain with nothing in it still has something moving across it.
+     */
+    private static final int AMBIENT_LINES_PER_TICK = 2;
 
     /** Strikes landed, reported in the heartbeat so the rate can be checked. */
     private int slashHits;
@@ -195,9 +202,9 @@ public class DomainEntity extends Entity {
     /** Blood bursts dropped by the global per-tick ceiling. */
     private int bloodBurstsSkipped;
     /** Slash lines actually started. */
-    private int slashStreakSpawns;
+    private int slashLineSpawns;
     /** Slash lines dropped because the live ceiling was reached. */
-    private int slashStreakSkipped;
+    private int slashLineSkipped;
 
     /** Running totals of barrier corrections, so the log can prove the barrier is working. */
     private int barrierHeldInside;
@@ -369,10 +376,10 @@ public class DomainEntity extends Entity {
 
         if (lifeTicks % 100 == 0) {
             LOGGER.info("[DomainExpansion] t={}s phase={} r={} y={} written={} captured={} guided={}"
-                            + " slashes={} blood={}(+{} capped) streaks={}(+{} capped)",
+                            + " slashes={} blood={}(+{} capped) lines={}(+{} capped)",
                     lifeTicks / 20, phase, currentRadius, currentVerticalY, originalBlocks.size(),
                     captured.size(), projectilesGuided, slashHits, bloodBursts, bloodBurstsSkipped,
-                    slashStreakSpawns, slashStreakSkipped);
+                    slashLineSpawns, slashLineSkipped);
         }
 
         if (lifeTicks % PERIODIC_INTERVAL == 0) {
@@ -386,9 +393,6 @@ public class DomainEntity extends Entity {
         if (buildComplete) {
             if (kind.hasCrimsonSlash()) {
                 crimsonSlashStep(server);
-                // after the step, so a line started this tick emits its first dots this tick;
-                // also draws the ambient layer, which runs whether or not anything is inside
-                slashStreaks.tick(server, center(), radius(), this::containsPoint);
             }
             guideProjectiles(server);
             emitBoundaryParticles(server);
@@ -880,14 +884,13 @@ public class DomainEntity extends Entity {
      * strikes a second is far more than either is worth drawing for:
      *
      *   - blood, {@link CrimsonSlash#BLOOD_PER_VICTIM_PER_SECOND}, spattered on the victim;
-     *   - slash lines, {@link CrimsonSlash#LINES_PER_VICTIM_PER_SECOND}, started on the victim
-     *     and flying off, which replaced the Blood Slash projectile as the visible slash.
+     *   - slash lines, {@link CrimsonSlash#LINES_PER_VICTIM_PER_SECOND}, started on the victim.
      *
      * Both allowances are therefore per entity, as asked, and both are backed by a global ceiling
-     * - {@link CrimsonSlash#MAX_BLOOD_BURSTS_PER_TICK} and {@link SlashStreaks#MAX_LIVE_STREAKS} -
+     * - {@link CrimsonSlash#MAX_BLOOD_BURSTS_PER_TICK} and {@link SlashLines#MAX_LIVE_LINES} -
      * because a per-victim rate multiplied by a sphere full of entities is not a number the
-     * client can draw. The wall's ambient lines share the line ceiling and are drawn regardless
-     * of whether anything is inside to be cut.
+     * client can draw. The ambient lines share the line ceiling, and are drawn whether or not
+     * anything is inside to be cut.
      *
      * See {@link CrimsonSlash} for why the damage carries no attacker, and why only some strikes
      * are allowed to make a sound.
@@ -896,6 +899,14 @@ public class DomainEntity extends Entity {
         Entity ownerEntity = ownerUuid != null ? server.getEntity(ownerUuid) : null;
         if (!(ownerEntity instanceof LivingEntity caster) || !caster.isAlive()) {
             return;
+        }
+
+        // the lines tick and expire themselves; this only keeps the ceiling honest
+        slashLines.removeIf(Entity::isRemoved);
+
+        // the ambient layer first, so an empty domain is not a dead one
+        for (int i = 0; i < AMBIENT_LINES_PER_TICK; i++) {
+            spawnSlashLine(server, randomPointInside());
         }
 
         Vec3 c = center();
@@ -941,18 +952,40 @@ public class DomainEntity extends Entity {
                 bloodBursts++;
             }
 
+            Vec3 body = new Vec3(
+                    victim.getX(),
+                    victim.getY() + victim.getBbHeight() * 0.5D,
+                    victim.getZ());
             for (int i = 0; i < linesPerVictim; i++) {
-                if (!slashStreaks.spawnAt(server, new Vec3(
-                        victim.getX(),
-                        victim.getY() + victim.getBbHeight() * 0.5D,
-                        victim.getZ()))) {
-                    slashStreakSkipped++;
-                    // cap reached: no point asking for the rest of this victim's allowance
+                if (!spawnSlashLine(server, body)) {
+                    // ceiling reached: no point asking for the rest of this victim's allowance
                     break;
                 }
-                slashStreakSpawns++;
             }
         }
+    }
+
+    /** Starts one slash line, unless the ceiling is reached. */
+    private boolean spawnSlashLine(ServerLevel server, Vec3 at) {
+        if (slashLines.size() >= SlashLines.MAX_LIVE_LINES) {
+            slashLineSkipped++;
+            return false;
+        }
+        slashLines.add(SlashLines.spawn(server, at));
+        slashLineSpawns++;
+        return true;
+    }
+
+    /** A random point inside the sphere, biased outwards so the lines are seen against the wall. */
+    private Vec3 randomPointInside() {
+        double r = radius() * (0.35D + 0.6D * Math.sqrt(random.nextDouble()));
+        double theta = random.nextDouble() * Math.PI * 2.0D;
+        double phi = Math.acos(2.0D * random.nextDouble() - 1.0D);
+        Vec3 c = center();
+        return c.add(
+                r * Math.sin(phi) * Math.cos(theta),
+                r * Math.cos(phi) * 0.85D,
+                r * Math.sin(phi) * Math.sin(theta));
     }
 
     // ------------------------------------------------------------------

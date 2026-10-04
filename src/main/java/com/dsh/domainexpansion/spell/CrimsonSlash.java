@@ -49,16 +49,23 @@ public final class CrimsonSlash {
     public static final int LEVEL_BONUS = 2;
 
     /**
-     * How often the slash lands: five every tick, which is exactly a hundred a second.
+     * How often the slash lands.
      *
-     * It was thirty, built as one strike a tick plus one on every other tick, because thirty does
-     * not divide into twenty. A hundred does, so the alternating rule is gone and this is now
-     * simply five.
+     * Thirty times a second, which is where this started and where it has come back to. It went
+     * to a hundred and the damage went <em>down</em> in play - more strikes than the hurt
+     * pipeline and the pack's own damage handling can usefully process, so the extra hits cost
+     * frame time without landing. Thirty is one strike a tick plus one on every other tick, which
+     * averages 1.5 a tick and is exactly thirty a second; {@link #hitsForTick} is that rule as
+     * arithmetic so it can be tested rather than counted by hand.
      */
-    public static final int HITS_PER_TICK = 5;
+    public static final int HITS_PER_TICK = 1;
+
+    /** One extra strike on every Nth tick. Two, which is what turns 1 into 1.5. */
+    public static final int EXTRA_HIT_EVERY_TICKS = 2;
 
     /** The resulting rate, for the scroll text and the log. */
-    public static final double HITS_PER_SECOND = 20.0D * HITS_PER_TICK;
+    public static final double HITS_PER_SECOND =
+            20.0D * (HITS_PER_TICK + 1.0D / EXTRA_HIT_EVERY_TICKS);
 
     /**
      * Blood bursts a second, at most, <em>per victim</em>.
@@ -69,16 +76,11 @@ public final class CrimsonSlash {
     public static final int BLOOD_PER_VICTIM_PER_SECOND = 30;
 
     /**
-     * Slash lines a second, at most, <em>per victim</em> - the red and white lines.
+     * Slash lines a second, at most, <em>per victim</em>.
      *
-     * These replaced the Blood Slash projectile as the visible slash, and are started on the
-     * victim so they read as cutting it. Fifty a second each was asked for explicitly, and
-     * clarified as per entity rather than in total.
-     *
-     * That means the total scales with how many entities are inside, which is why there is a
-     * global cap on top - see {@link #MAX_BLOOD_BURSTS_PER_TICK} for blood and
-     * {@link SlashStreaks#MAX_LIVE_STREAKS} for the lines. Eighteen entities, which is what one
-     * of the test runs captured, would otherwise be nine hundred lines a second.
+     * These are the lines now drawn as textured entities rather than particles - see
+     * {@link SlashLines}. Fifty a second each was asked for, and clarified as per entity rather
+     * than in total; the ceiling they share is {@link SlashLines#MAX_LIVE_LINES}.
      */
     public static final int LINES_PER_VICTIM_PER_SECOND = 50;
 
@@ -131,9 +133,10 @@ public final class CrimsonSlash {
         return Math.max(1, Math.min(domainLevel + LEVEL_BONUS, slashMaxLevel));
     }
 
-    /** How many strikes land on a given domain tick. */
+    /** How many strikes land on a given domain tick. One, or two on every other tick. */
     public static int hitsForTick(int domainTick) {
-        return HITS_PER_TICK;
+        return HITS_PER_TICK
+                + (Math.floorMod(domainTick, EXTRA_HIT_EVERY_TICKS) == 0 ? 1 : 0);
     }
 
     /**

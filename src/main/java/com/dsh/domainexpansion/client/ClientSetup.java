@@ -25,5 +25,6 @@ public final class ClientSetup {
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntities.DOMAIN.get(), DomainRenderer::new);
+        event.registerEntityRenderer(ModEntities.SLASH_LINE.get(), SlashLineRenderer::new);
     }
 }
