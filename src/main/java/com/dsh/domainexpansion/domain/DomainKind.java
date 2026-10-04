@@ -3,6 +3,7 @@ package com.dsh.domainexpansion.domain;
 import com.dsh.domainexpansion.registry.ModBlocks;
 import com.gametechbc.traveloptics.util.TravelopticsParticleHelper;
 import io.redspace.ironsspellbooks.util.ParticleHelper;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -49,6 +50,25 @@ public enum DomainKind {
     /** The translation key of the second title card. The first is shared. */
     public String epithetKey() {
         return epithetKey;
+    }
+
+    /**
+     * The colour the first title card - the domain's shared name - is drawn in.
+     *
+     * Per kind, and per card, because the crimson domain's were asked to differ from each other:
+     * black for the name and red for the epithet, against the Aqua domain's blue for both.
+     *
+     * Worth knowing before changing this: a title has no background, so it is drawn straight
+     * over whatever the player is looking at. Black is invisible against the dark of a cave or a
+     * night sky; it reads best in daylight.
+     */
+    public ChatFormatting titleNameColor() {
+        return this == CRIMSON ? ChatFormatting.BLACK : ChatFormatting.BLUE;
+    }
+
+    /** The colour the second title card - the epithet - is drawn in. */
+    public ChatFormatting titleEpithetColor() {
+        return this == CRIMSON ? ChatFormatting.RED : ChatFormatting.BLUE;
     }
 
     public BlockState shellState() {

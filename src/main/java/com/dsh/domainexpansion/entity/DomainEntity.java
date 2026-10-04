@@ -784,7 +784,8 @@ public class DomainEntity extends Entity {
         if (titleStage == 0) {
             for (ServerPlayer player : audience(server)) {
                 player.connection.send(new ClientboundSetTitlesAnimationPacket(5, TITLE_NAME_STAY, 10));
-                player.connection.send(new ClientboundSetTitleTextPacket(title("domain_expansion.title.name")));
+                player.connection.send(new ClientboundSetTitleTextPacket(
+                        title("domain_expansion.title.name", kind.titleNameColor())));
             }
             titleStage = 1;
             return;
@@ -792,7 +793,8 @@ public class DomainEntity extends Entity {
         if (lifeTicks >= TITLE_EPITHET_AT) {
             for (ServerPlayer player : audience(server)) {
                 player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 45, 10));
-                player.connection.send(new ClientboundSetTitleTextPacket(title(kind.epithetKey())));
+                player.connection.send(new ClientboundSetTitleTextPacket(
+                        title(kind.epithetKey(), kind.titleEpithetColor())));
             }
             titleStage = 2;
             LOGGER.info("[DomainExpansion] announced both titles by t={}s", lifeTicks / 20);
@@ -807,9 +809,9 @@ public class DomainEntity extends Entity {
      * directly is the only lever a server has over that, and it is the pixel font the title was
      * asked to use.
      */
-    private static Component title(String translationKey) {
+    private Component title(String translationKey, ChatFormatting colour) {
         return Component.translatable(translationKey).withStyle(Style.EMPTY
-                .withColor(ChatFormatting.BLUE)
+                .withColor(colour)
                 .withFont(ResourceLocation.withDefaultNamespace("default")));
     }
 
