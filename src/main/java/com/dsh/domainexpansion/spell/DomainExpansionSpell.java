@@ -44,9 +44,9 @@ public class DomainExpansionSpell extends AbstractSpell {
             .build();
 
     /**
-     * The hand seal played during the wind-up: both arms already pointing forward and slightly
-     * apart, closing together over the first 1.5 seconds and then holding still for the last
-     * 0.5. Shipped as {@code player_animation/domain_seal.json}.
+     * The hand seal played during the wind-up: both arms pointing forward and apart, drawing
+     * together over the first second and then holding still. Shipped as
+     * {@code player_animation/domain_seal.json}.
      *
      * Iron's own animations were tried first and none of them fits. {@code long_cast} is five
      * seconds of two poses alternating every half second, a charging tremor rather than a motion
@@ -54,46 +54,31 @@ public class DomainExpansionSpell extends AbstractSpell {
      * snaps the hands into place instead of moving them. A search of all 75 animations for one
      * where both arms point forward and are spread apart returned nothing.
      *
-     * So the animation is authored, and the axis to animate was found the hard way - two earlier
-     * attempts looked wrong in game before the model was understood. Minecraft applies a model
-     * part's rotation as X, then Y, then Z, so the same axis means different things depending on
-     * what the others are doing:
+     * So the animation is authored, and the axis to animate was found the hard way - several
+     * earlier attempts looked wrong in game before the model was understood.
+     *
+     * Minecraft applies a model part's rotation as X, then Y, then Z:
      *
      * <pre>
      *   X   swings the arm forward. Applied first, and -90 points it straight ahead - the value
      *       continuous_thrust holds.
      *   Y   yaws an already-forward arm sideways. Applied after X, so this is the axis that
      *       opens and closes a forward-pointing pair of hands.
-     *   Z   swings a hanging arm out to the side; cast_t_pose uses Z = +95 / -97.5 with X = 0.
-     *       It is the wrong axis here: with X near -90 the arm already points away from the Z
-     *       axis, so changing Z spins it in place rather than moving it.
+     *   Z   swings a *hanging* arm out to the side; cast_t_pose uses Z = +95 / -97.5 with X = 0.
+     *       Wrong here: with X near -90 the arm already points away from the Z axis, so changing
+     *       Z spins it in place.
      * </pre>
      *
-     * The first attempt changed X and Z together, which read as the hands being raised and then
-     * lowered. The second held X at -95 and animated Z, which read as the arms rotating half a
-     * turn and only meeting in the final moment. This one holds X at -90 and Z at 0, and
-     * animates Y alone, so the hands stay pointed forward throughout and do nothing but close.
+     * X and Z are therefore pinned at -90 and 0, and only Y moves. The sign took two attempts to
+     * settle and is counter-intuitive: a <em>larger</em> Y magnitude brings the hands together,
+     * not a smaller one. The first version went from -45 / +45 down to -22 / +22 and had to be
+     * reported as reversed - it opened the hands instead of closing them. So the wind-up runs
+     * from -6 / +6 (arms forward, apart) up to -26 / +26, and
+     * {@link #SEAL_FINISH_ANIMATION} carries on to -42 / +42.
      *
-     * It also stops short of closing. The wind-up takes the arms from +-45 to +-22 and holds
-     * there; the last of the gap is closed by {@link #SEAL_FINISH_ANIMATION} at the moment the
-     * cast completes. That was asked for explicitly - the hands must not meet early, they meet
-     * where the release flourish used to be.
-     *
-     * The signs were worked out from the model rather than guessed. The player model faces +Z,
-     * and rotating the right arm's X by -90 swings it from hanging down onto +Z, which is why
-     * -90 is the value continuous_thrust uses to point forward. Facing +Z puts the right arm on
-     * the -X side, and a positive Y rotation sends the arm towards +X, so negative Y is what
-     * swings the right arm outward - hence -45 for the right and +45 for the left. If the arms
-     * ever visibly converge instead of spreading, those signs are the thing to flip.
-     *
-     * There is no position channel either. An earlier version also translated the arm pivots
-     * 2 units inward as the hands met, and between that and the shoulder swing the motion read
-     * as turning while also rotating inward. Rotation alone is what was asked for.
-     *
-     * One thing a single-bone arm cannot avoid: because the player model has no separate
-     * forearm or hand bone here, swinging the arm at the shoulder necessarily turns the hand's
-     * facing as well. That is the shoulder motion itself rather than an extra twist, which is
-     * why Z is held at exactly 0.
+     * It deliberately stops short of closing. The hands must not meet during the cast; the last
+     * of the gap is closed by the finish animation on the frame the domain opens, which is the
+     * moment the removed release flourish used to occupy.
      */
     private static final AnimationHolder SEAL_ANIMATION = new AnimationHolder(
             ResourceLocation.fromNamespaceAndPath("domain_expansion", "domain_seal"), true);
@@ -146,13 +131,15 @@ public class DomainExpansionSpell extends AbstractSpell {
      * release flourish used to sit on, before it was removed. Shipped as
      * {@code player_animation/domain_seal_finish.json}.
      *
-     * The wind-up deliberately stops short: it takes the arms from a wide +-45 spread to +-22
-     * and holds there, so the hands never actually meet during the cast. This animation covers
-     * that last gap, +-22 down to +-2, in the fifth of a second after the cast finishes. Its
-     * opening frame is the wind-up's closing frame, so the two join without a jump.
+     * The wind-up deliberately stops short: it draws the arms from -6 / +6 to -26 / +26 and
+     * holds there, so the hands never meet during the cast. This animation covers that last gap,
+     * -26 / +26 up to -42 / +42, over 0.4 seconds. Its opening frame is the wind-up's closing
+     * frame, so the two join without a jump.
      *
-     * easeOutSine rather than the easeInOutSine the wind-up uses: contact should arrive quickly
-     * and settle, not accelerate out of a stall.
+     * 0.4s rather than the 0.2s it started at: the contact was reported as feeling rushed. The
+     * easing is easeOutSine against the wind-up's easeInOutSine - contact should arrive quickly
+     * and settle rather than accelerate out of a stall - but the whole motion is slower than it
+     * was, which is what was asked for.
      */
     private static final AnimationHolder SEAL_FINISH_ANIMATION = new AnimationHolder(
             ResourceLocation.fromNamespaceAndPath("domain_expansion", "domain_seal_finish"), true);

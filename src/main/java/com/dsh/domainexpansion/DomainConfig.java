@@ -76,19 +76,20 @@ public final class DomainConfig {
     public static final int MANA_COST_PER_LEVEL = 1000;
 
     /**
-     * The wind-up, in ticks: 40 ticks is the two seconds of the hand seal.
+     * The wind-up, in ticks: 30 ticks is 1.5 seconds - 1.0 of the hands drawing together, then
+     * 0.5 holding still, and the domain opens when the cast completes. The last of the gap
+     * between the hands is closed by the finish animation after that, over 0.4 seconds.
      *
      * The animation shipped at {@code player_animation/domain_seal.json} is authored for exactly
-     * this: both arms draw together from 0 to 1.5 seconds, then hold the seal from 1.5 to 2.0,
-     * and the domain opens when the cast completes at 2.0. Changing this number without also
-     * changing the animation will desynchronise the two - a shorter cast cuts the motion off
-     * before the hands meet, a longer one leaves the seal held after the sphere has already
-     * appeared.
+     * this timing. Changing this number without also changing the animation will desynchronise
+     * the two - a shorter cast cuts the motion off before the hands have drawn together, a
+     * longer one leaves the seal held after the sphere has already appeared.
      *
-     * It was 0 for a while, because the original four second wind-up felt slow in play. This is
-     * the user asking for a wind-up back, but one that is worth watching.
+     * It was 40 (two seconds) until it was asked to be tighter: the drawing-together shortened
+     * from 1.5s to 1.0s, the 0.5s hold left alone, and the closing contact slowed from 0.2s to
+     * 0.4s. Before that it was 0, because the original four second wind-up felt slow in play.
      */
-    public static final int CAST_TIME = 40;
+    public static final int CAST_TIME = 30;
 
     /**
      * Whether spells cast inside the domain are given a target automatically.

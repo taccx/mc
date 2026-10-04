@@ -3,18 +3,18 @@
   "animations": {
     "domain_seal_finish": {
       "loop": false,
-      "animation_length": 0.2,
+      "animation_length": 0.4,
       "bones": {
         "right_arm": {
           "rotation": {
-            "0.0": { "vector": [-90, -22, 0], "easing": "easeOutSine" },
-            "0.2": { "vector": [-90, -2, 0] }
+            "0.0": { "vector": [-90, -26, 0], "easing": "easeOutSine" },
+            "0.4": { "vector": [-90, -42, 0] }
           }
         },
         "left_arm": {
           "rotation": {
-            "0.0": { "vector": [-90, 22, 0], "easing": "easeOutSine" },
-            "0.2": { "vector": [-90, 2, 0] }
+            "0.0": { "vector": [-90, 26, 0], "easing": "easeOutSine" },
+            "0.4": { "vector": [-90, 42, 0] }
           }
         }
       }
