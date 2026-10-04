@@ -1,7 +1,7 @@
 ﻿domain_expansion-1.0.0.jar
 
-  size    : 98239 bytes
-  sha256  : 34F513AB08B7F473D31559A8C1493EF9FB180D6B956DA36B9A8B6B037FF245CE
+  size    : 97531 bytes
+  sha256  : 67ACBC21CEAE2A161B9200A736A97CFE129B008CC7B94E44497AC6E0805BC24B
   source  : tag v1.2.0
 
 Version history
@@ -58,6 +58,7 @@ Copy the jar into the modpack's mods folder while the game is CLOSED:
 
 Replacing it while the game is loading corrupts the mod scan and crashes the game with a
 misleading UnionFileSystem$NoSuchFileException. install-jar.ps1 checks this and refuses.
+
 
 
 

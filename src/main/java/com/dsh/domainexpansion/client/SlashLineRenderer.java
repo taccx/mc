@@ -40,10 +40,20 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
                     "domain_expansion", "textures/entity/slash_line/slash_line_glow.png");
 
     /** How much wider than the line the halo is drawn. */
-    private static final float GLOW_SCALE = 1.9F;
+    private static final float GLOW_SCALE = 1.55F;
 
     /** The halo's opacity, kept low so it reads as a bleed rather than as a second line. */
-    private static final float GLOW_ALPHA = 0.34F;
+    private static final float GLOW_ALPHA = 0.28F;
+
+    /**
+     * How far the line is pushed in front of its own halo, in blocks.
+     *
+     * The two quads are otherwise exactly coplanar, which z-fights: the depth test cannot
+     * separate them and the result alternates between the two, which came back from play as the
+     * line looking banded - white and grey in strips, with a rim around it. Small enough not to
+     * read as an offset, large enough to settle it.
+     */
+    private static final float CORE_OFFSET = 0.03F;
 
     public SlashLineRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -77,11 +87,11 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
         quad(buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)),
                 poseStack, half * 1.04F, thickness * GLOW_SCALE,
                 red ? 1.0F : 0.82F, red ? 0.18F : 0.90F, red ? 0.24F : 1.0F,
-                alpha * GLOW_ALPHA);
+                alpha * GLOW_ALPHA, 0.0F);
 
-        // then the line
+        // then the line, pushed forward so the two cannot z-fight
         quad(buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? RED : WHITE)),
-                poseStack, half, thickness, 1.0F, 1.0F, 1.0F, alpha);
+                poseStack, half, thickness, 1.0F, 1.0F, 1.0F, alpha, CORE_OFFSET);
 
         poseStack.popPose();
         super.render(entity, entityYaw, partialTick, poseStack, buffers, packedLight);
@@ -90,19 +100,19 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
     /** One quad, centred, spanning the full texture. */
     private static void quad(VertexConsumer consumer, PoseStack poseStack,
                              float halfLength, float halfThickness,
-                             float red, float green, float blue, float alpha) {
+                             float red, float green, float blue, float alpha, float z) {
         Matrix4f matrix = poseStack.last().pose();
         Matrix3f normal = poseStack.last().normal();
-        vertex(consumer, matrix, normal, -halfLength, halfThickness, 0.0F, 0.0F, red, green, blue, alpha);
-        vertex(consumer, matrix, normal, halfLength, halfThickness, 1.0F, 0.0F, red, green, blue, alpha);
-        vertex(consumer, matrix, normal, halfLength, -halfThickness, 1.0F, 1.0F, red, green, blue, alpha);
-        vertex(consumer, matrix, normal, -halfLength, -halfThickness, 0.0F, 1.0F, red, green, blue, alpha);
+        vertex(consumer, matrix, normal, -halfLength, halfThickness, 0.0F, 0.0F, red, green, blue, alpha, z);
+        vertex(consumer, matrix, normal, halfLength, halfThickness, 1.0F, 0.0F, red, green, blue, alpha, z);
+        vertex(consumer, matrix, normal, halfLength, -halfThickness, 1.0F, 1.0F, red, green, blue, alpha, z);
+        vertex(consumer, matrix, normal, -halfLength, -halfThickness, 0.0F, 1.0F, red, green, blue, alpha, z);
     }
 
     private static void vertex(VertexConsumer consumer, Matrix4f matrix, Matrix3f normal,
                                float x, float y, float u, float v,
-                               float red, float green, float blue, float alpha) {
-        consumer.vertex(matrix, x, y, 0.0F)
+                               float red, float green, float blue, float alpha, float z) {
+        consumer.vertex(matrix, x, y, z)
                 .color(red, green, blue, alpha)
                 .uv(u, v)
                 .overlayCoords(OverlayTexture.NO_OVERLAY)
