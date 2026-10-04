@@ -402,7 +402,7 @@ public class DomainEntity extends Entity {
         for (int i = 0; i < PARTICLES_PER_TICK; i++) {
             Vec3 p = particlePoints.get(particleCursor);
             particleCursor = (particleCursor + 1) % particlePoints.size();
-            server.sendParticles(TravelopticsParticleHelper.WATER_SPARKS,
+            server.sendParticles(kind.boundaryParticle(),
                     p.x, p.y, p.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
         }
     }

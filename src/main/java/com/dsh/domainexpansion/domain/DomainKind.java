@@ -1,6 +1,9 @@
 package com.dsh.domainexpansion.domain;
 
 import com.dsh.domainexpansion.registry.ModBlocks;
+import com.gametechbc.traveloptics.util.TravelopticsParticleHelper;
+import io.redspace.ironsspellbooks.util.ParticleHelper;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.registries.RegistryObject;
@@ -68,6 +71,22 @@ public enum DomainKind {
     /** Whether everything inside is cut repeatedly for the whole duration. */
     public boolean hasCrimsonSlash() {
         return crimsonSlash;
+    }
+
+    /**
+     * The motes drawn along the finished wall.
+     *
+     * Per-kind rather than fixed, which is a fix rather than a flourish: the Aqua wall's water
+     * sparks were being emitted for both domains, so a crimson domain rained water droplets
+     * inside. The crimson wall shows blood motes instead.
+     *
+     * Resolved inside the method rather than stored, so this class does not reach into another
+     * mod's static fields while it is being initialised.
+     */
+    public ParticleOptions boundaryParticle() {
+        return this == CRIMSON
+                ? ParticleHelper.BLOOD
+                : TravelopticsParticleHelper.WATER_SPARKS;
     }
 
     /** Resolves a saved name, falling back to the Aqua domain for anything unrecognised. */
