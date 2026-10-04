@@ -42,7 +42,7 @@ public final class ModEntities {
     public static final RegistryObject<EntityType<SlashLineEntity>> SLASH_LINE =
             ENTITIES.register("slash_line", () -> EntityType.Builder
                     .<SlashLineEntity>of(SlashLineEntity::new, MobCategory.MISC)
-                    .sized(30.0F, 7.5F)
+                    .sized(30.0F, 3.0F)
                     .clientTrackingRange(32)
                     .updateInterval(20)
                     .noSummon()

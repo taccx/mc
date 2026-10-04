@@ -5,7 +5,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -40,10 +39,17 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
                     "domain_expansion", "textures/entity/slash_line/slash_line_glow.png");
 
     /** How much wider than the line the halo is drawn. */
-    private static final float GLOW_SCALE = 1.55F;
+    private static final float GLOW_SCALE = 1.08F;
 
-    /** The halo's opacity, kept low so it reads as a bleed rather than as a second line. */
-    private static final float GLOW_ALPHA = 0.28F;
+    /**
+     * The halo's opacity.
+     *
+     * 1.08 and 0.16 now, against 1.55 and 0.28. The wider, stronger version was added for the
+     * edge glow that was asked for, and it was most of what made the line look blurry: a soft
+     * band wider than the line itself, over the line, reads as a smudge rather than as a glowing
+     * edge. This is a rim tight against the line instead.
+     */
+    private static final float GLOW_ALPHA = 0.16F;
 
     /**
      * How far the line is pushed in front of its own halo, in blocks.
@@ -84,13 +90,13 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
         boolean red = entity.variant() == 1;
 
         // halo first, so the line draws over it
-        quad(buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)),
+        quad(buffers.getBuffer(SlashRenderTypes.of(GLOW)),
                 poseStack, half * 1.04F, thickness * GLOW_SCALE,
                 red ? 1.0F : 0.82F, red ? 0.18F : 0.90F, red ? 0.24F : 1.0F,
                 alpha * GLOW_ALPHA, 0.0F);
 
         // then the line, pushed forward so the two cannot z-fight
-        quad(buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? RED : WHITE)),
+        quad(buffers.getBuffer(SlashRenderTypes.of(red ? RED : WHITE)),
                 poseStack, half, thickness, 1.0F, 1.0F, 1.0F, alpha, CORE_OFFSET);
 
         poseStack.popPose();
