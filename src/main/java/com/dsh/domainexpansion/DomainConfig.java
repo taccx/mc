@@ -60,6 +60,32 @@ public final class DomainConfig {
     /** Cast time in ticks; the spell also declares itself INSTANT. */
     public static final int CAST_TIME = 0;
 
+    /**
+     * Whether spells cast inside the domain are given a target automatically.
+     *
+     * OFF by default, deliberately, after testing it in game. Three reasons, in order of
+     * weight:
+     *
+     *  - It is a large power increase. The domain already forces every hit to land on everyone
+     *    inside; removing the need to aim as well makes every offensive spell in the game
+     *    effectively point-and-click for as long as the domain lasts. The user's own words were
+     *    that this would be 超模 (overpowered).
+     *  - It has a side effect on CONTINUOUS spells. Those re-enter castSpell every tick while
+     *    channelled, so a single 呼啸风暴 channel produced 21 auto-target events over 72 seconds,
+     *    bending the caster's aim on every one of those ticks.
+     *  - It only ever worked for part of the spell list. Iron's chooses targets in several
+     *    places; a spell that targets inside {@code checkPreCastConditions} has already decided
+     *    before any event a mod can hook, and {@code Utils.preCastTargetHelper} always raycasts
+     *    and overwrites whatever was placed there. Spells that read the target back out of the
+     *    cast data can be re-pointed, which is what the handler does, but that only covers some
+     *    of them.
+     *
+     * The code is kept rather than deleted, because it does work where it works - a logged
+     * lightning_lance cast was redirected onto the nearest entity - and turning it back on is
+     * this one line. Nothing else in the mod is gated on it.
+     */
+    public static final boolean AUTO_TARGET_ENABLED = false;
+
     /** Cooldown in seconds. */
     public static final double COOLDOWN_SECONDS = 300.0D;
 }

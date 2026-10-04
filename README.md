@@ -1,7 +1,7 @@
-# Domain Expansion (领域展开)
+﻿# Domain Expansion (棰嗗煙灞曞紑)
 
 An addon for **T.O Magic 'n Extras (traveloptics)** on **Minecraft 1.20.1 / Forge 47.4.16**,
-adding the Aqua (源流) ultimate **领域展开**.
+adding the Aqua (婧愭祦) ultimate **棰嗗煙灞曞紑**.
 
 Casting it opens a radius 30 sphere centred on the caster for two minutes:
 
@@ -16,7 +16,7 @@ Casting it opens a radius 30 sphere centred on the caster for two minutes:
 | Property | Value |
 |---|---|
 | Spell id | `domain_expansion:domain_expansion` |
-| School | 源流 / Aqua (`traveloptics:aqua`) |
+| School | 婧愭祦 / Aqua (`traveloptics:aqua`) |
 | Rarity | Legendary, max level 3 |
 | Cast type | INSTANT |
 | Radius | 30 blocks |
@@ -118,7 +118,7 @@ domain's lifetime does not depend on the anchor entity.
 
 ```powershell
 $proj = 'E:\dsh\domain-expansion'
-$mods = 'E:\minecraft1.12.2《异世界：忍者之影》未完成内测版本V2.1.132\minecraft1.12.2《异世界：忍者之影》内测版本V2.1.132\.minecraft\versions\涟漪之篇·如涟漪之所见\mods'
+$mods = 'E:\minecraft1.12.2銆婂紓涓栫晫锛氬繊鑰呬箣褰便€嬫湭瀹屾垚鍐呮祴鐗堟湰V2.1.132\minecraft1.12.2銆婂紓涓栫晫锛氬繊鑰呬箣褰便€嬪唴娴嬬増鏈琕2.1.132\.minecraft\versions\娑熸吉涔嬬瘒路濡傛稛婕箣鎵€瑙乗mods'
 New-Item -ItemType Directory -Force $proj\libs | Out-Null
 Copy-Item "$mods\irons_spellbooks-1.20.1-3.15.4.jar" $proj\libs
 Copy-Item "$mods\traveloptics-6.3.0-1.20.1.jar" $proj\libs
@@ -272,3 +272,4 @@ problem" is one command in game:
 
 Unknown block means a registration problem, nothing appearing means a resource/render
 problem, and a blue glowing cube means the block is fine and the build logic is at fault.
+

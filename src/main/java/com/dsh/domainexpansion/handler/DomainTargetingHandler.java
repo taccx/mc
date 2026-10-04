@@ -1,5 +1,6 @@
 package com.dsh.domainexpansion.handler;
 
+import com.dsh.domainexpansion.DomainConfig;
 import com.dsh.domainexpansion.entity.DomainEntity;
 import io.redspace.ironsspellbooks.api.events.SpellOnCastEvent;
 import io.redspace.ironsspellbooks.api.events.SpellPreCastEvent;
@@ -20,6 +21,14 @@ import java.util.UUID;
 
 /**
  * Makes spells find a target inside the caster's own domain, without aiming.
+ *
+ * <b>Disabled by default.</b> {@link DomainConfig#AUTO_TARGET_ENABLED} gates both handlers
+ * below; the reasoning is written out there. In short: it is a large power increase on top of a
+ * domain that already makes every hit land, it bends the caster's aim on every tick of a
+ * channelled spell, and it only ever covered part of the spell list anyway. The code is kept
+ * because it does work where it works, and re-enabling it is one line.
+ *
+ * The rest of this comment describes how it works when it is on.
  *
  * Iron's Spellbooks acquires targets in several different places, and the ordering is what
  * makes this more than a one-line job. Reading {@code AbstractSpell}:
@@ -87,6 +96,9 @@ public final class DomainTargetingHandler {
      */
     @SubscribeEvent
     public static void onSpellPreCast(SpellPreCastEvent event) {
+        if (!DomainConfig.AUTO_TARGET_ENABLED) {
+            return;
+        }
         Player caster = event.getEntity();
         DomainEntity domain = domainOf(caster);
         if (domain == null) {
@@ -108,6 +120,9 @@ public final class DomainTargetingHandler {
      */
     @SubscribeEvent
     public static void onSpellOnCast(SpellOnCastEvent event) {
+        if (!DomainConfig.AUTO_TARGET_ENABLED) {
+            return;
+        }
         Player caster = event.getEntity();
         DomainEntity domain = domainOf(caster);
         if (domain == null) {
