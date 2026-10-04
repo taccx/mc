@@ -2,11 +2,14 @@ package com.dsh.domainexpansion.entity;
 
 import com.dsh.domainexpansion.DomainConfig;
 import com.dsh.domainexpansion.domain.Barrier;
+import com.dsh.domainexpansion.domain.DomainKind;
 import com.dsh.domainexpansion.domain.Guidance;
 import com.dsh.domainexpansion.domain.SphereShape;
 import com.dsh.domainexpansion.registry.ModBlocks;
 import com.dsh.domainexpansion.registry.ModEntities;
+import com.dsh.domainexpansion.spell.CrimsonSlash;
 import com.dsh.domainexpansion.spell.SupportSpells;
+import io.redspace.ironsspellbooks.entity.spells.blood_slash.BloodSlashProjectile;
 import com.gametechbc.traveloptics.entity.projectiles.RainfallAoe;
 import com.gametechbc.traveloptics.entity.projectiles.overflow.FloodPoolEntity;
 import com.gametechbc.traveloptics.util.TravelopticsParticleHelper;
@@ -129,6 +132,12 @@ public class DomainEntity extends Entity {
 
     private UUID ownerUuid;
     private int spellLevel = 1;
+
+    /**
+     * Which domain this is. Saved with the entity, so a domain that survives a reload keeps its
+     * own blocks rather than restoring Aqua ones over everything.
+     */
+    private DomainKind kind = DomainKind.AQUA;
     private int lifeTicks;
 
     /** Everything this domain has written, and what was there before. */
@@ -172,6 +181,23 @@ public class DomainEntity extends Entity {
     private RainfallAoe rainfall;
     private final Set<UUID> captured = new HashSet<>();
 
+    /**
+     * Slash visuals still in flight, for the crimson domain. Pruned as they age out and used to
+     * hold {@link CrimsonSlash#MAX_LIVE_VISUALS}. Damage is unaffected by the cap.
+     *
+     * The age is tracked here rather than left to the projectile, whose own lifetime is 80 ticks
+     * - far longer than the arc needs to be drawn, and long enough that a crowded domain would
+     * accumulate thousands of them between the five strikes a second.
+     */
+    private final List<SlashVisual> slashVisuals = new ArrayList<>();
+    /** Strikes landed, reported in the heartbeat so the rate can be checked. */
+    private int slashHits;
+    /** Slash visuals skipped to stay under the cap, reported in the heartbeat. */
+    private int slashVisualsSkipped;
+
+    private record SlashVisual(BloodSlashProjectile entity, int spawnedAtTick) {
+    }
+
     /** Running totals of barrier corrections, so the log can prove the barrier is working. */
     private int barrierHeldInside;
     private int barrierKeptOut;
@@ -196,11 +222,16 @@ public class DomainEntity extends Entity {
         this.setSilent(true);
     }
 
-    public DomainEntity(Level level, LivingEntity owner, int spellLevel) {
+    public DomainEntity(Level level, LivingEntity owner, int spellLevel, DomainKind kind) {
         this(ModEntities.DOMAIN.get(), level);
         this.ownerUuid = owner.getUUID();
         this.spellLevel = spellLevel;
+        this.kind = kind;
         this.setPos(owner.getX(), owner.getY(), owner.getZ());
+    }
+
+    public DomainKind kind() {
+        return kind;
     }
 
     public int getSpellLevel() {
@@ -263,9 +294,9 @@ public class DomainEntity extends Entity {
         currentVerticalY = 1;
         blocksToPlace = new ArrayList<>();
         blockPlaceIndex = 0;
-        shellState = ModBlocks.DOMAIN_SHELL.get().defaultBlockState();
-        floorState = ModBlocks.DOMAIN_FLOOR.get().defaultBlockState();
-        airState = ModBlocks.DOMAIN_AIR.get().defaultBlockState();
+        shellState = kind.shellState();
+        floorState = kind.floorState();
+        airState = kind.airState();
 
         Vec3 c = center();
         List<Vec3> points = new ArrayList<>();
@@ -331,18 +362,23 @@ public class DomainEntity extends Entity {
         }
 
         if (lifeTicks % 100 == 0) {
-            LOGGER.info("[DomainExpansion] t={}s phase={} r={} y={} written={} captured={} guided={}",
+            LOGGER.info("[DomainExpansion] t={}s phase={} r={} y={} written={} captured={} guided={} slashes={}",
                     lifeTicks / 20, phase, currentRadius, currentVerticalY, originalBlocks.size(),
-                    captured.size(), projectilesGuided);
+                    captured.size(), projectilesGuided, slashHits);
         }
 
         if (lifeTicks % PERIODIC_INTERVAL == 0) {
             maintainBarrier(server);
-            maintainSupportSpells(server);
+            if (kind.hasSupportSpells()) {
+                maintainSupportSpells(server);
+            }
         }
         announce(server);
 
         if (buildComplete) {
+            if (kind.hasCrimsonSlash() && lifeTicks % CrimsonSlash.INTERVAL_TICKS == 0) {
+                crimsonSlashStep(server);
+            }
             guideProjectiles(server);
             emitBoundaryParticles(server);
             if (domainMillis >= DomainConfig.DOMAIN_DURATION_MILLIS) {
@@ -585,9 +621,9 @@ public class DomainEntity extends Entity {
     private void recover(ServerLevel server) {
         needsRecovery = false;
         if (shellState == null) {
-            shellState = ModBlocks.DOMAIN_SHELL.get().defaultBlockState();
-            floorState = ModBlocks.DOMAIN_FLOOR.get().defaultBlockState();
-            airState = ModBlocks.DOMAIN_AIR.get().defaultBlockState();
+            shellState = kind.shellState();
+            floorState = kind.floorState();
+            airState = kind.airState();
         }
         int cleaned = 0;
         if (domainCenter != null) {
@@ -744,7 +780,7 @@ public class DomainEntity extends Entity {
         if (lifeTicks >= TITLE_EPITHET_AT) {
             for (ServerPlayer player : audience(server)) {
                 player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 45, 10));
-                player.connection.send(new ClientboundSetTitleTextPacket(title("domain_expansion.title.epithet")));
+                player.connection.send(new ClientboundSetTitleTextPacket(title(kind.epithetKey())));
             }
             titleStage = 2;
             LOGGER.info("[DomainExpansion] announced both titles by t={}s", lifeTicks / 20);
@@ -813,6 +849,65 @@ public class DomainEntity extends Entity {
             }
         }
         return best;
+    }
+
+    // ------------------------------------------------------------------
+    // crimson slash
+    // ------------------------------------------------------------------
+
+    /**
+     * Cuts everything inside that is not the caster, once per interval - five times a second.
+     *
+     * Runs off the same containment test as the barrier, so "inside" means the same thing to
+     * both. Each victim is struck individually rather than all at once, because the strike
+     * clears that victim's hurt cooldown immediately before damaging them: a shared hit would
+     * put every entity in the sphere on the same invulnerability timer and collapse the rate.
+     *
+     * See {@link CrimsonSlash} for why the damage carries no attacker, and why the visual is a
+     * real Blood Slash projectile with its damage zeroed.
+     */
+    private void crimsonSlashStep(ServerLevel server) {
+        Entity ownerEntity = ownerUuid != null ? server.getEntity(ownerUuid) : null;
+        if (!(ownerEntity instanceof LivingEntity caster) || !caster.isAlive()) {
+            return;
+        }
+
+        // age out the previous visuals first, so the cap reflects what is actually on screen
+        slashVisuals.removeIf(visual -> {
+            boolean spent = lifeTicks - visual.spawnedAtTick() >= CrimsonSlash.VISUAL_LIFETIME_TICKS
+                    || visual.entity().isRemoved();
+            if (spent) {
+                visual.entity().discard();
+            }
+            return spent;
+        });
+
+        Vec3 c = center();
+        AABB box = new AABB(c, c).inflate(radius());
+        List<LivingEntity> victims = new ArrayList<>();
+        for (LivingEntity candidate : server.getEntitiesOfClass(LivingEntity.class, box)) {
+            if (candidate.getUUID().equals(ownerUuid) || !candidate.isAlive()) {
+                continue;
+            }
+            if (contains(candidate)) {
+                victims.add(candidate);
+            }
+        }
+        if (victims.isEmpty()) {
+            return;
+        }
+
+        float damage = CrimsonSlash.damage(spellLevel, caster);
+        for (LivingEntity victim : victims) {
+            CrimsonSlash.strike(server, victim, damage);
+            slashHits++;
+            if (slashVisuals.size() < CrimsonSlash.MAX_LIVE_VISUALS) {
+                slashVisuals.add(new SlashVisual(
+                        CrimsonSlash.spawnVisual(server, caster, victim), lifeTicks));
+            } else {
+                slashVisualsSkipped++;
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -943,6 +1038,8 @@ public class DomainEntity extends Entity {
         lifeTicks = tag.getInt("LifeTicks");
         domainMillis = tag.getLong("DomainMillis");
         spellLevel = tag.getInt("SpellLevel");
+        // defaults to AQUA, so a domain saved before crimson existed still loads
+        kind = DomainKind.byName(tag.getString("DomainKind"));
         if (tag.hasUUID("DomainOwner")) {
             ownerUuid = tag.getUUID("DomainOwner");
         }
@@ -966,6 +1063,7 @@ public class DomainEntity extends Entity {
         tag.putInt("LifeTicks", lifeTicks);
         tag.putLong("DomainMillis", domainMillis);
         tag.putInt("SpellLevel", spellLevel);
+        tag.putString("DomainKind", kind.name());
         if (ownerUuid != null) {
             tag.putUUID("DomainOwner", ownerUuid);
         }

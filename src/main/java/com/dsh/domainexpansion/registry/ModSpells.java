@@ -1,6 +1,7 @@
 package com.dsh.domainexpansion.registry;
 
 import com.dsh.domainexpansion.DomainExpansion;
+import com.dsh.domainexpansion.spell.CrimsonDomainExpansionSpell;
 import com.dsh.domainexpansion.spell.DomainExpansionSpell;
 import io.redspace.ironsspellbooks.api.registry.SpellRegistry;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
@@ -25,6 +26,11 @@ public final class ModSpells {
     public static final DeferredRegister<AbstractSpell> SPELLS =
             DeferredRegister.create(SpellRegistry.SPELL_REGISTRY_KEY, DomainExpansion.MODID);
 
+    /** 领域展开, the Aqua (源流) variant. */
     public static final RegistryObject<AbstractSpell> DOMAIN_EXPANSION =
             SPELLS.register("domain_expansion", DomainExpansionSpell::new);
+
+    /** 领域展开, the crimson (猩红 / Blood) variant. */
+    public static final RegistryObject<AbstractSpell> CRIMSON_DOMAIN_EXPANSION =
+            SPELLS.register("crimson_domain_expansion", CrimsonDomainExpansionSpell::new);
 }

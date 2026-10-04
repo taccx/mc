@@ -1,6 +1,7 @@
 package com.dsh.domainexpansion.spell;
 
 import com.dsh.domainexpansion.DomainConfig;
+import com.dsh.domainexpansion.domain.DomainKind;
 import com.dsh.domainexpansion.entity.DomainEntity;
 import com.dsh.domainexpansion.registry.ModSpells;
 import com.gametechbc.traveloptics.api.init.TravelopticsSchools;
@@ -82,6 +83,16 @@ public class DomainExpansionSpell extends AbstractSpell {
      */
     private static final AnimationHolder SEAL_ANIMATION = new AnimationHolder(
             ResourceLocation.fromNamespaceAndPath("domain_expansion", "domain_seal"), true);
+
+    /** Shared with the crimson domain: a domain is cast the same way whoever owns it. */
+    public static AnimationHolder sealAnimation() {
+        return SEAL_ANIMATION;
+    }
+
+    /** Shared with the crimson domain. */
+    public static AnimationHolder sealFinishAnimation() {
+        return SEAL_FINISH_ANIMATION;
+    }
 
     public DomainExpansionSpell() {
         this.baseManaCost = DomainConfig.BASE_MANA_COST;
@@ -174,7 +185,7 @@ public class DomainExpansionSpell extends AbstractSpell {
                 existing.closeForRecast(server);
             }
 
-            DomainEntity domain = new DomainEntity(server, entity, spellLevel);
+            DomainEntity domain = new DomainEntity(server, entity, spellLevel, DomainKind.AQUA);
             server.addFreshEntity(domain);
             // Initialise explicitly rather than relying on the loader's onAddedToWorld
             // callback. Registration with the tick handler happens inside, and if that step

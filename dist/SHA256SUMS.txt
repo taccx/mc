@@ -1,7 +1,7 @@
-domain_expansion-1.0.0.jar
+﻿domain_expansion-1.0.0.jar
 
-  size    : 62317 bytes
-  sha256  : 317BD7E7BF9983B746F0BB4BB0CAB153146767A5028622B6D3CEB7AE2D206EF6
+  size    : 76101 bytes
+  sha256  : 52E4205789B52306415596F98BE58DBC0C2AD35CF539777323C2CFEADAA20569
   source  : tag v1.2.0
 
 Version history
@@ -54,7 +54,8 @@ Installing
 ==========
 
 Copy the jar into the modpack's mods folder while the game is CLOSED:
-  ...\.minecraft\versions\涟漪之篇·如涟漪之所见\mods\
+  ...\.minecraft\versions\娑熸吉涔嬬瘒路濡傛稛婕箣鎵€瑙乗mods\
 
 Replacing it while the game is loading corrupts the mod scan and crashes the game with a
 misleading UnionFileSystem$NoSuchFileException. install-jar.ps1 checks this and refuses.
+
