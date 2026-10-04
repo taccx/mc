@@ -72,8 +72,12 @@ public class DomainExpansionSpell extends AbstractSpell {
      * The first attempt changed X and Z together, which read as the hands being raised and then
      * lowered. The second held X at -95 and animated Z, which read as the arms rotating half a
      * turn and only meeting in the final moment. This one holds X at -90 and Z at 0, and
-     * animates Y alone from -45 / +45 to -4 / +4, so the hands stay pointed forward throughout
-     * and do nothing but close, finishing well before the hold.
+     * animates Y alone, so the hands stay pointed forward throughout and do nothing but close.
+     *
+     * It also stops short of closing. The wind-up takes the arms from +-45 to +-22 and holds
+     * there; the last of the gap is closed by {@link #SEAL_FINISH_ANIMATION} at the moment the
+     * cast completes. That was asked for explicitly - the hands must not meet early, they meet
+     * where the release flourish used to be.
      *
      * The signs were worked out from the model rather than guessed. The player model faces +Z,
      * and rotating the right arm's X by -90 swings it from hanging down onto +Z, which is why
@@ -138,13 +142,25 @@ public class DomainExpansionSpell extends AbstractSpell {
     }
 
     /**
-     * No release flourish. There was one - Iron's {@code long_cast_finish}, a short forward jab
-     * on the frame the domain opens - and it was asked to be removed, so the seal simply holds
-     * and the sphere appears.
+     * The closing contact, played on the frame the cast completes - which is the moment the
+     * release flourish used to sit on, before it was removed. Shipped as
+     * {@code player_animation/domain_seal_finish.json}.
+     *
+     * The wind-up deliberately stops short: it takes the arms from a wide +-45 spread to +-22
+     * and holds there, so the hands never actually meet during the cast. This animation covers
+     * that last gap, +-22 down to +-2, in the fifth of a second after the cast finishes. Its
+     * opening frame is the wind-up's closing frame, so the two join without a jump.
+     *
+     * easeOutSine rather than the easeInOutSine the wind-up uses: contact should arrive quickly
+     * and settle, not accelerate out of a stall.
      */
+    private static final AnimationHolder SEAL_FINISH_ANIMATION = new AnimationHolder(
+            ResourceLocation.fromNamespaceAndPath("domain_expansion", "domain_seal_finish"), true);
+
+    /** The release, once the hands have met and the sphere opens. */
     @Override
     public AnimationHolder getCastFinishAnimation() {
-        return AnimationHolder.none();
+        return SEAL_FINISH_ANIMATION;
     }
 
     @Override

@@ -8,15 +8,15 @@
         "right_arm": {
           "rotation": {
             "0.0": { "vector": [-90, -45, 0], "easing": "easeInOutSine" },
-            "1.5": { "vector": [-90, -4, 0], "easing": "easeInOutSine" },
-            "2.0": { "vector": [-90, -4, 0] }
+            "1.5": { "vector": [-90, -22, 0], "easing": "easeInOutSine" },
+            "2.0": { "vector": [-90, -22, 0] }
           }
         },
         "left_arm": {
           "rotation": {
             "0.0": { "vector": [-90, 45, 0], "easing": "easeInOutSine" },
-            "1.5": { "vector": [-90, 4, 0], "easing": "easeInOutSine" },
-            "2.0": { "vector": [-90, 4, 0] }
+            "1.5": { "vector": [-90, 22, 0], "easing": "easeInOutSine" },
+            "2.0": { "vector": [-90, 22, 0] }
           }
         }
       }
