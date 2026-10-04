@@ -72,8 +72,24 @@ public class DomainExpansionSpell extends AbstractSpell {
      * The first attempt changed X and Z together, which read as the hands being raised and then
      * lowered. The second held X at -95 and animated Z, which read as the arms rotating half a
      * turn and only meeting in the final moment. This one holds X at -90 and Z at 0, and
-     * animates Y alone from -25 / +25 to -3 / +3, so the hands stay pointed forward throughout
+     * animates Y alone from -45 / +45 to -4 / +4, so the hands stay pointed forward throughout
      * and do nothing but close, finishing well before the hold.
+     *
+     * The signs were worked out from the model rather than guessed. The player model faces +Z,
+     * and rotating the right arm's X by -90 swings it from hanging down onto +Z, which is why
+     * -90 is the value continuous_thrust uses to point forward. Facing +Z puts the right arm on
+     * the -X side, and a positive Y rotation sends the arm towards +X, so negative Y is what
+     * swings the right arm outward - hence -45 for the right and +45 for the left. If the arms
+     * ever visibly converge instead of spreading, those signs are the thing to flip.
+     *
+     * There is no position channel either. An earlier version also translated the arm pivots
+     * 2 units inward as the hands met, and between that and the shoulder swing the motion read
+     * as turning while also rotating inward. Rotation alone is what was asked for.
+     *
+     * One thing a single-bone arm cannot avoid: because the player model has no separate
+     * forearm or hand bone here, swinging the arm at the shoulder necessarily turns the hand's
+     * facing as well. That is the shoulder motion itself rather than an extra twist, which is
+     * why Z is held at exactly 0.
      */
     private static final AnimationHolder SEAL_ANIMATION = new AnimationHolder(
             ResourceLocation.fromNamespaceAndPath("domain_expansion", "domain_seal"), true);
@@ -121,10 +137,14 @@ public class DomainExpansionSpell extends AbstractSpell {
         return SEAL_ANIMATION;
     }
 
-    /** The release, once the hands have met and the sphere opens. */
+    /**
+     * No release flourish. There was one - Iron's {@code long_cast_finish}, a short forward jab
+     * on the frame the domain opens - and it was asked to be removed, so the seal simply holds
+     * and the sphere appears.
+     */
     @Override
     public AnimationHolder getCastFinishAnimation() {
-        return SpellAnimations.ANIMATION_LONG_CAST_FINISH;
+        return AnimationHolder.none();
     }
 
     @Override
