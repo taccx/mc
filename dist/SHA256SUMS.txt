@@ -1,29 +1,44 @@
-﻿domain_expansion-1.0.0.jar
+domain_expansion-1.0.0.jar
+
   size    : 61041 bytes
   sha256  : 956EC3A911C14162C0721700C22A7485725089AC3AA60716D37FD3CCFCD3F0F8
-  built   : 2026-10-05 00:17:53
-  source  : master (adds barrier diagnostics on top of tag v1.0.0)
+  built   : 2026-10-05 00:35
+  source  : tag v1.1.0
 
-Tag guide
-  v1.0.0  the build confirmed working in game: radius 30 sphere, 8,486 blocks placed in
-          3.6 real seconds, held 120s of real time, restored in 0.45s. That tag's dist/ jar
-          and the jar in the modpack are identical apart from MANIFEST.MF.
-  master  adds diagnostics only (barrier counters, broadcast breakdown, support spell
-          logging). No behaviour change, but not yet re-confirmed in game.
+Version history
+===============
+
+v1.0.0  The first build confirmed working in game.
+        Radius 30 sphere, 8,486 blocks placed in 3.6 real seconds, held for 120s of real
+        time, restored in 0.45s. Bright blue textures, no title cards.
+
+v1.1.0  Everything after that, all of it requested by the user:
+          - abyssal palette: near-black wall (13,14,18), deep teal floor (22,58,64)
+          - title cards: the domain name, then its epithet with corner brackets, in blue
+          - thrown spells curve towards whatever is trapped inside
+          - lock-on auto-targeting, OFF by default (see DomainConfig.AUTO_TARGET_ENABLED)
+          - scroll lists the effects with the levels they run at
+          - Overflow and Rainfall run one level above the domain, wet amplifiers included
+          - mana cost 1000 / 2000 / 3000 instead of 200 / 400 / 600
+        Untested in game at the time of tagging: the support spell levels, the scroll text,
+        and whether the mana cost is affordable on the user's character.
+
+Rolling back
+============
+
+  git clone https://github.com/taccx/mc.git
+  cd mc
+  git checkout v1.0.0        # or v1.1.0
 
 The jar is NOT byte-reproducible: build.gradle writes an Implementation-Timestamp into the
 manifest, so rebuilding the same source produces a jar differing by a byte or two. Compare
 behaviour, not hashes, when checking out an older tag and rebuilding.
 
-Install by copying it into the modpack's mods folder while the game is CLOSED:
+Installing
+==========
+
+Copy the jar into the modpack's mods folder while the game is CLOSED:
   ...\.minecraft\versions\涟漪之篇·如涟漪之所见\mods\
+
 Replacing it while the game is loading corrupts the mod scan and crashes the game with a
-misleading UnionFileSystem. Use install-jar.ps1, which checks this.
-
-
-
-
-
-
-
-
+misleading UnionFileSystem$NoSuchFileException. install-jar.ps1 checks this and refuses.
