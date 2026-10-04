@@ -207,11 +207,18 @@ public class DomainEntity extends Entity {
     /**
      * Half-angle of the cone the ambient lines are placed in, in degrees.
      *
-     * Seventy-six degrees of field of view, which is Minecraft's default, so a half-angle of
-     * thirty-eight. The client's actual field of view is a setting the server is never told, so
-     * this is an estimate and the reason the placement is a bias rather than a filter.
+     * Sixty, sized to a field of view setting of ninety degrees. That setting is the vertical
+     * field of view, and on a 16:9 screen a ninety degree vertical field is about a hundred and
+     * twenty-one degrees horizontally, so the horizontal half-angle is about sixty. Matching the
+     * horizontal extent rather than the vertical is what keeps lines all the way to the sides of
+     * the screen instead of stopping short of them.
+     *
+     * The client's actual field of view is a setting the server is never told, so this is an
+     * estimate and the reason the placement is a bias rather than a filter. A player on the
+     * default seventy-six vertical would want about forty-five here; on a hundred and ten, about
+     * sixty-six.
      */
-    private static final double VIEW_CONE_DEGREES = 38.0D;
+    private static final double VIEW_CONE_DEGREES = 60.0D;
 
     /**
      * How close to the eye a line may be placed, in blocks.
