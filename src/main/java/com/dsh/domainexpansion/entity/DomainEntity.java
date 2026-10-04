@@ -2,6 +2,7 @@ package com.dsh.domainexpansion.entity;
 
 import com.dsh.domainexpansion.DomainConfig;
 import com.dsh.domainexpansion.domain.Barrier;
+import com.dsh.domainexpansion.domain.Guidance;
 import com.dsh.domainexpansion.domain.SphereShape;
 import com.dsh.domainexpansion.registry.ModBlocks;
 import com.dsh.domainexpansion.registry.ModEntities;
@@ -679,10 +680,13 @@ public class DomainEntity extends Entity {
             if (aim.lengthSqr() < 1.0E-6D) {
                 continue;
             }
-            // keep the projectile's speed; only the direction is corrected
-            Vec3 wanted = aim.normalize().scale(motion.length());
-            Vec3 steered = motion.scale(1.0D - GUIDANCE_TURN).add(wanted.scale(GUIDANCE_TURN));
-            projectile.setDeltaMovement(steered);
+            // the steering lives in Guidance, where it is unit tested: the obvious
+            // implementation quietly bleeds speed on every steered tick
+            Guidance.Vector steered = Guidance.steer(
+                    new Guidance.Vector(motion.x, motion.y, motion.z),
+                    new Guidance.Vector(aim.x, aim.y, aim.z),
+                    GUIDANCE_TURN);
+            projectile.setDeltaMovement(steered.x(), steered.y(), steered.z());
             // makes the server resend the velocity, otherwise the client keeps drawing the old path
             projectile.hurtMarked = true;
             projectilesGuided++;
