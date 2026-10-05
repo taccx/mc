@@ -226,7 +226,7 @@ public class DomainEntity extends Entity {
      * Four, so nothing spawns in the player's face. At a third of a block wide, a line at arm's
      * length would fill the screen for its whole life.
      */
-    private static final double VIEW_MIN_DISTANCE = 8.0D;
+    private static final double VIEW_MIN_DISTANCE = 4.0D;
 
     /** Strikes landed, reported in the heartbeat so the rate can be checked. */
     private int slashHits;
@@ -1004,15 +1004,30 @@ public class DomainEntity extends Entity {
         }
     }
 
-    /** Starts one slash line, unless the ceiling is reached. */
+    /**
+     * Starts one slash mark, unless the ceiling is reached.
+     *
+     * The distance is measured to the caster's eye rather than to the middle of the domain,
+     * because it is the eye the mark's size is chosen for.
+     */
     private boolean spawnSlashLine(ServerLevel server, Vec3 at) {
         if (slashLines.size() >= SlashLines.MAX_LIVE_LINES) {
             slashLineSkipped++;
             return false;
         }
-        slashLines.add(SlashLines.spawn(server, at));
+        slashLines.add(SlashLines.spawn(server, at, distanceFromViewer(at)));
         slashLineSpawns++;
         return true;
+    }
+
+    /** How far a point is from the eye the domain is being drawn for, in blocks. */
+    private double distanceFromViewer(Vec3 at) {
+        Entity owner = ownerUuid != null && level() instanceof ServerLevel server
+                ? server.getEntity(ownerUuid) : null;
+        if (owner instanceof LivingEntity caster) {
+            return caster.getEyePosition().distanceTo(at);
+        }
+        return center().distanceTo(at);
     }
 
     /**

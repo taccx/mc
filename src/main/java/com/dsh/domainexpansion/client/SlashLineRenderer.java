@@ -61,6 +61,15 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
      */
     private static final float CORE_OFFSET = 0.03F;
 
+    /**
+     * Frames in the mark's sprite sheet.
+     *
+     * Eight, one per tick of the mark's life, taken from the reference: its slash particle
+     * advances one frame of an eight frame sheet per tick and that sweep is most of what makes a
+     * cut read as having happened rather than as a decal sitting there.
+     */
+    private static final int FRAMES = 8;
+
     public SlashLineRenderer(EntityRendererProvider.Context context) {
         super(context);
     }
@@ -91,30 +100,38 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
 
         boolean red = entity.variant() == 1;
 
-        // halo first, so the mark draws over it
+        // the cut sweeps in over the first half of the sheet and holds for the second, one frame
+        // per tick, which is what the reference does with its eight frame particle sprite
+        int frame = Math.min(FRAMES - 1, (int) (entity.tickCount + partialTick));
+        float vMin = (float) frame / FRAMES;
+        float vMax = (float) (frame + 1) / FRAMES;
+
+        // halo first, so the mark draws over it. The halo is a single frame strip, not a sheet,
+        // so it always spans the full texture.
         quad(buffers.getBuffer(SlashRenderTypes.of(GLOW)),
                 poseStack, half * GLOW_SCALE, half * GLOW_SCALE,
                 red ? 1.0F : 0.82F, red ? 0.18F : 0.90F, red ? 0.24F : 1.0F,
-                alpha * GLOW_ALPHA, 0.0F);
+                alpha * GLOW_ALPHA, 0.0F, 0.0F, 1.0F);
 
         // then the mark, pushed forward so the two cannot z-fight
         quad(buffers.getBuffer(SlashRenderTypes.of(red ? RED : WHITE)),
-                poseStack, half, half, 1.0F, 1.0F, 1.0F, alpha, CORE_OFFSET);
+                poseStack, half, half, 1.0F, 1.0F, 1.0F, alpha, CORE_OFFSET, vMin, vMax);
 
         poseStack.popPose();
         super.render(entity, entityYaw, partialTick, poseStack, buffers, packedLight);
     }
 
-    /** One quad, centred, spanning the full texture. */
+    /** One quad, centred, spanning the given slice of the texture's height. */
     private static void quad(VertexConsumer consumer, PoseStack poseStack,
                              float halfLength, float halfThickness,
-                             float red, float green, float blue, float alpha, float z) {
+                             float red, float green, float blue, float alpha, float z,
+                             float vMin, float vMax) {
         Matrix4f matrix = poseStack.last().pose();
         Matrix3f normal = poseStack.last().normal();
-        vertex(consumer, matrix, normal, -halfLength, halfThickness, 0.0F, 0.0F, red, green, blue, alpha, z);
-        vertex(consumer, matrix, normal, halfLength, halfThickness, 1.0F, 0.0F, red, green, blue, alpha, z);
-        vertex(consumer, matrix, normal, halfLength, -halfThickness, 1.0F, 1.0F, red, green, blue, alpha, z);
-        vertex(consumer, matrix, normal, -halfLength, -halfThickness, 0.0F, 1.0F, red, green, blue, alpha, z);
+        vertex(consumer, matrix, normal, -halfLength, halfThickness, 0.0F, vMin, red, green, blue, alpha, z);
+        vertex(consumer, matrix, normal, halfLength, halfThickness, 1.0F, vMin, red, green, blue, alpha, z);
+        vertex(consumer, matrix, normal, halfLength, -halfThickness, 1.0F, vMax, red, green, blue, alpha, z);
+        vertex(consumer, matrix, normal, -halfLength, -halfThickness, 0.0F, vMax, red, green, blue, alpha, z);
     }
 
     private static void vertex(VertexConsumer consumer, Matrix4f matrix, Matrix3f normal,
