@@ -73,7 +73,11 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
         // the line sweeps out and then fades: full length by a third of the way through, gone by
         // the end. Without this a line simply appears and vanishes, which reads as a flicker.
         float grow = Math.min(1.0F, progress * 3.0F);
-        float fade = 1.0F - progress * progress;
+        // cubed rather than squared, so the line holds most of its strength for most of its life
+        // and drops away at the end instead of fading out from the moment it appears. Reported as
+        // the lines looking faint, and a curve that is already at half opacity by the midpoint was
+        // part of that.
+        float fade = 1.0F - progress * progress * progress;
         float half = entity.length() * 0.5F * grow;
         float alpha = Math.max(0.0F, fade);
         if (alpha <= 0.01F) {
