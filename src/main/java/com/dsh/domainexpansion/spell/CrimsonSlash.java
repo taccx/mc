@@ -171,7 +171,7 @@ public final class CrimsonSlash {
      * once the sphere is full of marks, further ones are skipped and counted rather than drawn. The
      * damage is untouched by that: the ceiling is on the drawing, not on the hitting.
      */
-    public static final int MARKS_PER_VICTIM_PER_SECOND = 12;
+    public static final int MARKS_PER_VICTIM_PER_SECOND = 18;
 
     /** How far above a victim's feet its marks are centred, as a fraction of its height. */
     public static final double MARK_HEIGHT_FRACTION = 0.6D;
@@ -266,6 +266,14 @@ public final class CrimsonSlash {
      * cannot crash.
      */
     private static final ResourceLocation[] SLASH_SOUND_CANDIDATES = {
+            // Iron's names a cast sound by school in its own sounds.json as cast.generic.<school>,
+            // which is where the sound heard when a domain opens comes from - not from the spell,
+            // whose getCastStartSound is empty. Blood first, because the domain is a blood spell.
+            ResourceLocation.fromNamespaceAndPath("irons_spellbooks", "cast.generic.blood"),
+            ResourceLocation.fromNamespaceAndPath("irons_spellbooks", "cast.generic.ender"),
+            ResourceLocation.fromNamespaceAndPath("irons_spellbooks", "cast.generic.evocation"),
+            ResourceLocation.fromNamespaceAndPath("irons_spellbooks", "cast.generic.fire"),
+            ResourceLocation.fromNamespaceAndPath("irons_spellbooks", "cast.generic.ice"),
             ResourceLocation.fromNamespaceAndPath("cursedfate", "shrine_slash"),
             ResourceLocation.fromNamespaceAndPath("cursedfate", "slash_hachi"),
             ResourceLocation.fromNamespaceAndPath("cursedfate", "domain/shrine_slash"),

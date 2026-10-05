@@ -28,7 +28,7 @@ public final class SlashLines {
      * with a life of eight ticks, up to two hundred a second can be started. Past the ceiling new
      * lines are dropped and counted.
      */
-    public static final int MAX_LIVE_LINES = 320;
+    public static final int MAX_LIVE_LINES = 600;
 
     /** The two colours, as the entity's variant. */
     public static final int WHITE = 0;

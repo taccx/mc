@@ -437,7 +437,7 @@ public class DomainEntity extends Entity {
      * attack is damage and blood with no entity of its own. They still share
      * {@link SlashLines#MAX_LIVE_LINES}.
      */
-    private static final int AMBIENT_LINES_PER_SECOND = 300;
+    private static final int AMBIENT_LINES_PER_SECOND = 450;
 
     /**
      * Half-angle of the cone the ambient lines are placed in, in degrees.
@@ -453,7 +453,7 @@ public class DomainEntity extends Entity {
      * default seventy-six vertical would want about forty-five here; on a hundred and ten, about
      * sixty-six.
      */
-    private static final double VIEW_CONE_DEGREES = 90.0D;
+    private static final double VIEW_CONE_DEGREES = 180.0D;
 
     /**
      * How close to the eye a line may be placed, in blocks.
