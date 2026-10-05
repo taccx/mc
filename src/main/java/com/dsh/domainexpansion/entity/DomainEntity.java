@@ -1364,11 +1364,13 @@ public class DomainEntity extends Entity {
         // which runs thirty times a second.
         if (!slashDamageReported) {
             slashDamageReported = true;
-            LOGGER.info("[DomainExpansion] slash damage: Blood Slash reports {} at level {}, "
-                    + "{} per hit after the x{} factor, {} hits a second",
+            LOGGER.info("[DomainExpansion] slash damage: Blood Slash reports {} at level {}; "
+                    + "{} per hit after the x{} factor, so about {} a second",
                     CrimsonSlash.basePower(spellLevel, caster),
-                    CrimsonSlash.levelFor(spellLevel), damage,
-                    CrimsonSlash.TRUE_DAMAGE_FRACTION, (int) CrimsonSlash.HITS_PER_SECOND);
+                    CrimsonSlash.levelFor(spellLevel),
+                    damage * CrimsonSlash.TRUE_DAMAGE_FRACTION,
+                    CrimsonSlash.TRUE_DAMAGE_FRACTION,
+                    (int) (damage * CrimsonSlash.TRUE_DAMAGE_FRACTION * CrimsonSlash.HITS_PER_SECOND));
         }
 
         // per victim, not per tick: each entity gets its own allowance
