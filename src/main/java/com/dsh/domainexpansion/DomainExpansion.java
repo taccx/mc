@@ -33,8 +33,29 @@ public class DomainExpansion {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    /**
+     * Sound events this mod declares.
+     *
+     * The file itself lives in a resource pack in the modpack rather than in this jar. A resource
+     * pack is searched for sound files alongside mod jars, so declaring the event here and putting
+     * the ogg there behaves exactly like shipping it - while leaving the public repository free of
+     * audio that is not ours to publish.
+     */
+    public static final net.minecraftforge.registries.DeferredRegister<
+            net.minecraft.sounds.SoundEvent> SOUNDS =
+            net.minecraftforge.registries.DeferredRegister.create(
+                    net.minecraftforge.registries.ForgeRegistries.SOUND_EVENTS, MODID);
+
+    public static final net.minecraftforge.registries.RegistryObject<
+            net.minecraft.sounds.SoundEvent> SLASH_SOUND = SOUNDS.register("slash_custom",
+                    () -> net.minecraft.sounds.SoundEvent.createVariableRangeEvent(
+                            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                                    MODID, "slash_custom")));
+
     public DomainExpansion(FMLJavaModLoadingContext context) {
+
         IEventBus modBus = context.getModEventBus();
+        SOUNDS.register(modBus);
 
         ModSpells.SPELLS.register(modBus);
         ModBlocks.BLOCKS.register(modBus);

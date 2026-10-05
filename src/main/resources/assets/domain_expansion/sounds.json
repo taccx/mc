@@ -1,0 +1,8 @@
+{
+  "slash_custom": {
+    "subtitle": "subtitles.domain_expansion.slash",
+    "sounds": [
+      {"name": "domain_expansion:slash_custom", "stream": false}
+    ]
+  }
+}

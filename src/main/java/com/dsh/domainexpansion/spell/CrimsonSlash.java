@@ -260,6 +260,7 @@ public final class CrimsonSlash {
      * cannot crash.
      */
     private static final ResourceLocation[] SLASH_SOUND_CANDIDATES = {
+            ResourceLocation.fromNamespaceAndPath("domain_expansion", "slash_custom"),
             ResourceLocation.fromNamespaceAndPath("cursedfate", "shrine_slash"),
             ResourceLocation.fromNamespaceAndPath("cursedfate", "slash_hachi"),
             ResourceLocation.fromNamespaceAndPath("cursedfate", "domain/shrine_slash"),
@@ -273,33 +274,43 @@ public final class CrimsonSlash {
 
 
     /**
-     * The slash, as three layers of vanilla sound.
+     * Plays a slash. Custom sound if it is available, three layers of vanilla sound if not.
      *
-     * A slash is not one sound: it is air moving, a body behind it, and a hard transient where the
-     * edge lands. Layering three vanilla sounds at different pitches and volumes gets far closer to
-     * that than the single sweep this used to be, and vanilla sounds can be used freely - which
-     * matters, because there is no Vorbis encoder on the machine building this and the sounds from
-     * the mod the effect is modelled on are not this project's to redistribute.
+     * The position is the caster's, not the slash's, and that is the fix for a real fault: a
+     * positional sound fades with distance from the listener, so playing it at the slash meant a
+     * slash across the domain was inaudible and one at the player's feet was loud. A domain is an
+     * effect around the caster, so its voice belongs on the caster and should not attenuate with
+     * where inside the sphere a thing happens to be.
      */
-    private static void playSlash(ServerLevel server, double x, double y, double z, float volume) {
+    private static void playSlash(ServerLevel server, net.minecraft.world.phys.Vec3 at,
+                                  float volume) {
         SoundEvent found = slashSound();
         if (found != null) {
-            server.playSound(null, x, y, z, found, SoundSource.PLAYERS, volume,
+            server.playSound(null, at.x, at.y, at.z, found, SoundSource.PLAYERS, volume,
                     0.85F + server.random.nextFloat() * 0.3F);
             return;
         }
         // body: low and short, the weight of the cut
-        server.playSound(null, x, y, z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS,
-                volume * 0.85F, 0.55F + server.random.nextFloat() * 0.12F);
+        server.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_SWEEP,
+                SoundSource.PLAYERS, volume * 0.85F, 0.55F + server.random.nextFloat() * 0.12F);
         // air: the sweep itself, near its own pitch, which is the speed
-        server.playSound(null, x, y, z, SoundEvents.TRIDENT_RIPTIDE_1, SoundSource.PLAYERS,
-                volume * 0.5F, 1.35F + server.random.nextFloat() * 0.35F);
+        server.playSound(null, at.x, at.y, at.z, SoundEvents.TRIDENT_RIPTIDE_1,
+                SoundSource.PLAYERS, volume * 0.5F, 1.35F + server.random.nextFloat() * 0.35F);
         // transient: a single hard edge on top
-        server.playSound(null, x, y, z, SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS,
-                volume * 0.55F, 1.5F + server.random.nextFloat() * 0.4F);
+        server.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_CRIT,
+                SoundSource.PLAYERS, volume * 0.55F, 1.5F + server.random.nextFloat() * 0.4F);
     }
 
-    /** The sound a slash makes: the other mod's if it resolves, the vanilla sweep otherwise. */
+    /** Where a slash is heard from: the caster, or the world origin if there is no caster. */
+    private static net.minecraft.world.phys.Vec3 slashCentre(ServerLevel server) {
+        var players = server.players();
+        if (!players.isEmpty()) {
+            return players.get(0).position();
+        }
+        return net.minecraft.world.phys.Vec3.ZERO;
+    }
+
+    /** The sound a slash makes: this mod's own if it is present, the vanilla layers otherwise. */
     private static SoundEvent slashSound() {
         if (!resolvedSlashSound) {
             resolvedSlashSound = true;
@@ -422,8 +433,8 @@ public final class CrimsonSlash {
         if (!victim.isAlive()) {
             return;
         }
-        playSlash(server, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
-                victim.getZ(), SLASH_SOUND_VOLUME);
+        // on the caster, not on the victim: see playSlash
+        playSlash(server, slashCentre(server), SLASH_SOUND_VOLUME);
     }
 
     /**
@@ -526,7 +537,7 @@ public final class CrimsonSlash {
      * space rather than to mark a hit, and a spread keeps ten a second from reading as one tone.
      */
     public static void ambientSlashSound(ServerLevel server, Vec3 at) {
-        playSlash(server, at.x, at.y, at.z, AMBIENT_SOUND_VOLUME * 0.7F);
+        playSlash(server, slashCentre(server), AMBIENT_SOUND_VOLUME * 0.7F);
     }
 
     /**
