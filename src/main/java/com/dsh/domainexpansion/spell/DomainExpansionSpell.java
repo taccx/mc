@@ -181,6 +181,23 @@ public class DomainExpansionSpell extends AbstractSpell {
             // "domain opened" lines and doubled build work). The old domain is closed
             // cleanly - restoring its blocks - before the new one opens.
             DomainEntity existing = DomainEntity.activeFor(entity);
+            if (existing != null && existing.kind() == DomainKind.AQUA) {
+                // Recasting this spell inside your own aqua domain releases it, and does not open
+                // a second one - asked for so the two minutes do not have to be waited out. A
+                // domain of the other kind is still replaced rather than released, since that is
+                // a change of domain rather than a dismissal.
+                existing.closeForRecast(server);
+                // the mana is spent before onCast runs; releasing your own domain should not cost
+                if (entity instanceof net.minecraft.server.level.ServerPlayer player) {
+                    // addMana clamps to the player's maximum itself
+                    io.redspace.ironsspellbooks.api.magic.MagicData
+                            .getPlayerMagicData(player).addMana(getManaCost(spellLevel));
+                }
+                LOGGER.info("[DomainExpansion] aqua domain released early by {}",
+                        entity.getName().getString());
+                super.onCast(level, spellLevel, entity, castSource, playerMagicData);
+                return;
+            }
             if (existing != null) {
                 existing.closeForRecast(server);
             }

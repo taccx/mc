@@ -7,6 +7,7 @@ import com.gametechbc.traveloptics.spells.aqua.OverflowSpell;
 import io.redspace.ironsspellbooks.api.registry.AttributeRegistry;
 import io.redspace.ironsspellbooks.api.registry.SpellRegistry;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
+import io.redspace.ironsspellbooks.api.spells.CastSource;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
@@ -31,6 +32,8 @@ import net.minecraft.world.entity.ai.attributes.Attribute;
  */
 public final class SupportSpells {
 
+    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
+
     /** The support spells always run one level above the domain. */
     public static final int LEVEL_BONUS = 1;
 
@@ -39,7 +42,56 @@ public final class SupportSpells {
     private static final ResourceLocation RAINFALL_ID =
             ResourceLocation.fromNamespaceAndPath("traveloptics", "rainfall");
 
+    /**
+     * The Howling Tempest, cast once by a top level Aqua domain.
+     *
+     * Asked for as a one-off on top of the two maintained spells: 溢流 and 雨落 are kept running
+     * for the domain's whole life, and this is a single heavier cast after the domain opens.
+     * Level three only, since it is the domain's top level and the spell is the strongest thing
+     * the domain does.
+     */
+    private static final ResourceLocation HOWLING_TEMPEST_ID =
+            ResourceLocation.fromNamespaceAndPath("traveloptics", "the_howling_tempest");
+
+    private static boolean warnedMissingTempest;
+
     private SupportSpells() {
+    }
+
+    /**
+     * Casts The Howling Tempest once, at the domain's own level.
+     *
+     * Goes through the spell's own {@code castSpell} rather than being rebuilt from its parts, the
+     * way Overflow and Rainfall are, because this one is a single discrete effect rather than
+     * something that has to be kept alive for the domain's duration - so letting the spell do
+     * whatever it does is both simpler and more faithful.
+     *
+     * {@code castSpell} only accepts a server player, which the caster of a domain essentially
+     * always is; a non-player caster is logged and skipped rather than silently doing nothing.
+     *
+     * @return whether it was cast
+     */
+    public static boolean castHowlingTempest(net.minecraft.server.level.ServerLevel server,
+                                             LivingEntity caster, int domainLevel) {
+        AbstractSpell spell = spell(HOWLING_TEMPEST_ID);
+        if (spell == null) {
+            if (!warnedMissingTempest) {
+                warnedMissingTempest = true;
+                LOGGER.warn("[DomainExpansion] traveloptics:the_howling_tempest is not in the spell "
+                        + "registry; a level 3 aqua domain will not cast it");
+            }
+            return false;
+        }
+        if (!(caster instanceof net.minecraft.server.level.ServerPlayer player)) {
+            LOGGER.info("[DomainExpansion] the_howling_tempest skipped: caster {} is not a player",
+                    caster.getName().getString());
+            return false;
+        }
+        int level = Math.max(1, Math.min(domainLevel, spell.getMaxLevel()));
+        spell.castSpell(server, level, player, CastSource.COMMAND, false);
+        LOGGER.info("[DomainExpansion] the_howling_tempest cast at level {} by {}",
+                level, caster.getName().getString());
+        return true;
     }
 
     /** The level the support spells run at, for a domain of the given level. */

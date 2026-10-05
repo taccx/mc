@@ -95,8 +95,25 @@ public class CrimsonDomainExpansionSpell extends AbstractSpell {
     public void onCast(Level level, int spellLevel, LivingEntity entity,
                        CastSource castSource, MagicData playerMagicData) {
         if (!level.isClientSide && level instanceof ServerLevel server) {
-            // one domain per caster, as with the Aqua domain
+            // Recasting this spell inside your own crimson domain releases it, and does not open
+            // a second one. Asked for so the domain does not have to be waited out: two minutes is
+            // a long time to be unable to turn off your own effect. A domain of the other kind is
+            // still replaced rather than released, since that is a change of domain, not a
+            // dismissal.
             DomainEntity existing = DomainEntity.activeFor(entity);
+            if (existing != null && existing.kind() == DomainKind.CRIMSON) {
+                existing.closeForRecast(server);
+                // the mana was already spent by the time onCast runs, and releasing should not cost
+                if (entity instanceof net.minecraft.server.level.ServerPlayer player) {
+                    // addMana clamps to the player's maximum itself
+                    io.redspace.ironsspellbooks.api.magic.MagicData
+                            .getPlayerMagicData(player).addMana(getManaCost(spellLevel));
+                }
+                LOGGER.info("[DomainExpansion] crimson domain released early by {}",
+                        entity.getName().getString());
+                super.onCast(level, spellLevel, entity, castSource, playerMagicData);
+                return;
+            }
             if (existing != null) {
                 existing.closeForRecast(server);
             }

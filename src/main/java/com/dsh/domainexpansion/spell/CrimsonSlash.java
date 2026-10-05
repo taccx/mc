@@ -3,10 +3,16 @@ package com.dsh.domainexpansion.spell;
 import io.redspace.ironsspellbooks.api.registry.SpellRegistry;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.util.ParticleHelper;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
@@ -138,6 +144,43 @@ public final class CrimsonSlash {
     public static final float SLASH_SOUND_VOLUME = 0.9F;
 
     /**
+     * Slash sounds a second made by the domain itself, with nothing in it.
+     *
+     * Asked for after the sound turned out to be audible only near a victim: the per-victim
+     * sounds are positional, so an empty domain was silent, and a domain that goes quiet when
+     * nothing is being cut does not read as one. These are played at random points in the cone
+     * the viewer is looking at, so the domain has a voice of its own either way.
+     */
+    public static final int AMBIENT_SOUNDS_PER_SECOND = 10;
+
+    /**
+     * Damage as a fraction of what Blood Slash would deal.
+     *
+     * Cut to 0.4 at the same time the damage type stopped being resistible. Every one of the
+     * thirty strikes a second now lands whatever the target's armour, protection, Resistance,
+     * absorption or invulnerability says, so leaving the damage where it was would have been a
+     * large increase rather than a change of kind. This is the reduction that pays for it.
+     */
+    public static final float TRUE_DAMAGE_FRACTION = 0.4F;
+
+    /**
+     * The damage type for the crimson slash: registered in data, and listed in every vanilla
+     * bypass tag - armour, enchantments, effects, resistance, invulnerability and shields.
+     *
+     * Absorption is not among them. 1.20.1 has no bypass tag for it, so the absorption amount is
+     * cleared before each strike instead, which comes to the same thing.
+     *
+     * Built on demand rather than kept in a field. {@code Registries.DAMAGE_TYPE} is only
+     * populated once the game bootstraps, so a static field here throws during class
+     * initialisation in a plain unit test and takes every test in the class with it - which is
+     * exactly what happened. Nothing on the tested paths calls this.
+     */
+    private static ResourceKey<DamageType> trueSlashType() {
+        return ResourceKey.create(Registries.DAMAGE_TYPE,
+                ResourceLocation.fromNamespaceAndPath("domain_expansion", "true_slash"));
+    }
+
+    /**
      * How often a slash is heard, in ticks. Two, which is ten a second.
      *
      * It was ten ticks - twice a second - and was reported as far too sparse, with the ask being
@@ -165,6 +208,9 @@ public final class CrimsonSlash {
     private static final int FALLBACK_MAX_LEVEL = 5;
 
     private static boolean warnedMissingSpell;
+
+    /** Set once if the custom damage type cannot be resolved, so the log is not spammed. */
+    private static boolean warnedMissingDamageType;
 
     private CrimsonSlash() {
     }
@@ -282,22 +328,63 @@ public final class CrimsonSlash {
     /**
      * Applies one strike, clearing the hurt cooldown so the rate actually lands.
      *
-     * Always silent. The victim's hurt sound used to be let through occasionally, and it is the
-     * wrong noise for this: a grunt repeated ten times a second is not a flurry. The slash sound
-     * is played separately by {@link #slashSound}.
+     * Always silent, and always true damage now. The victim's hurt sound used to be let through
+     * occasionally and it is the wrong noise for this: a grunt repeated ten times a second is not
+     * a flurry. The slash sound is played separately by {@link #slashSound}.
+     *
+     * The damage ignores armour, protection, Resistance, effects, shields and the invulnerability
+     * that normally limits how often a target can be hit, because the damage type is listed in
+     * every vanilla bypass tag. Absorption is cleared first, since 1.20.1 has no tag for it.
      */
     public static void strike(ServerLevel server, LivingEntity victim, float damage) {
         if (damage <= 0.0F || !victim.isAlive()) {
             return;
         }
         victim.invulnerableTime = 0;
+        if (victim.getAbsorptionAmount() > 0.0F) {
+            victim.setAbsorptionAmount(0.0F);
+        }
         boolean wasSilent = victim.isSilent();
         victim.setSilent(true);
         try {
-            victim.hurt(server.damageSources().magic(), damage);
+            victim.hurt(trueSlash(server), damage * TRUE_DAMAGE_FRACTION);
         } finally {
             victim.setSilent(wasSilent);
         }
+    }
+
+    /**
+     * The unresistible damage source.
+     *
+     * Built from the data-driven damage type registry rather than a vanilla source, because what
+     * makes it unresistible is which tags the type is listed in, and those are data. Falls back to
+     * magic if the type is somehow absent, which is resistible but still bypasses armour - a
+     * weaker hit is a better failure than a crash.
+     */
+    public static DamageSource trueSlash(ServerLevel server) {
+        Registry<DamageType> registry = server.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE);
+        Holder<DamageType> holder = registry.getHolder(trueSlashType()).orElse(null);
+        if (holder == null) {
+            if (!warnedMissingDamageType) {
+                warnedMissingDamageType = true;
+                LOGGER.warn("[DomainExpansion] damage type domain_expansion:true_slash is missing; "
+                        + "crimson slashes fall back to magic damage, which armour still resists");
+            }
+            return server.damageSources().magic();
+        }
+        return new DamageSource(holder);
+    }
+
+    /**
+     * A slash sound at a point, for the domain's own ambient layer.
+     *
+     * Same sound as a victim's, quieter and with a wider pitch spread: it is there to fill the
+     * space rather than to mark a hit, and a spread keeps ten a second from reading as one tone.
+     */
+    public static void ambientSlashSound(ServerLevel server, Vec3 at) {
+        server.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_SWEEP,
+                SoundSource.PLAYERS, SLASH_SOUND_VOLUME * 0.65F,
+                0.7F + server.random.nextFloat() * 0.6F);
     }
 
     /**

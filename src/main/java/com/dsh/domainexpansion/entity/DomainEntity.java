@@ -228,6 +228,17 @@ public class DomainEntity extends Entity {
      */
     private static final double VIEW_MIN_DISTANCE = 4.0D;
 
+    /**
+     * How long after opening a level 3 aqua domain casts The Howling Tempest, in ticks.
+     *
+     * Two seconds, so the domain is visibly up and running before the tempest arrives rather than
+     * the two landing on the same frame.
+     */
+    private static final int HOWLING_TEMPEST_DELAY_TICKS = 40;
+
+    /** So the tempest is cast once, even though the condition stays true. */
+    private boolean howlingTempestCast;
+
     /** Strikes landed, reported in the heartbeat so the rate can be checked. */
     private int slashHits;
     /** Blood bursts actually spattered. */
@@ -425,6 +436,18 @@ public class DomainEntity extends Entity {
                 maintainSupportSpells(server);
             }
         }
+
+        // a level 3 aqua domain follows its opening with one Howling Tempest; delayed so it reads
+        // as a follow-up to the domain rather than as part of its appearance
+        if (kind == DomainKind.AQUA && spellLevel >= DomainConfig.MAX_LEVEL
+                && lifeTicks == HOWLING_TEMPEST_DELAY_TICKS && !howlingTempestCast) {
+            howlingTempestCast = true;
+            Entity howlOwner = ownerUuid != null ? server.getEntity(ownerUuid) : null;
+            if (howlOwner instanceof LivingEntity howlCaster) {
+                SupportSpells.castHowlingTempest(server, howlCaster, spellLevel);
+            }
+        }
+
         announce(server);
 
         if (buildComplete) {
@@ -945,6 +968,15 @@ public class DomainEntity extends Entity {
         int ambient = CrimsonSlash.allocationsThisTick(AMBIENT_LINES_PER_SECOND, lifeTicks);
         for (int i = 0; i < ambient; i++) {
             spawnSlashLine(server, randomPointInside());
+        }
+
+        // and the same again for sound, before the victim check: the per-victim sounds are
+        // positional, so without this the domain goes silent the moment nothing is inside it
+        int ambientSounds = CrimsonSlash.allocationsThisTick(
+                CrimsonSlash.AMBIENT_SOUNDS_PER_SECOND, lifeTicks);
+        for (int i = 0; i < ambientSounds; i++) {
+            CrimsonSlash.ambientSlashSound(server, randomPointInside());
+            slashSounds++;
         }
 
         Vec3 c = center();
