@@ -271,6 +271,34 @@ public final class CrimsonSlash {
     private static SoundEvent slashSound;
     private static boolean resolvedSlashSound;
 
+
+    /**
+     * The slash, as three layers of vanilla sound.
+     *
+     * A slash is not one sound: it is air moving, a body behind it, and a hard transient where the
+     * edge lands. Layering three vanilla sounds at different pitches and volumes gets far closer to
+     * that than the single sweep this used to be, and vanilla sounds can be used freely - which
+     * matters, because there is no Vorbis encoder on the machine building this and the sounds from
+     * the mod the effect is modelled on are not this project's to redistribute.
+     */
+    private static void playSlash(ServerLevel server, double x, double y, double z, float volume) {
+        SoundEvent found = slashSound();
+        if (found != null) {
+            server.playSound(null, x, y, z, found, SoundSource.PLAYERS, volume,
+                    0.85F + server.random.nextFloat() * 0.3F);
+            return;
+        }
+        // body: low and short, the weight of the cut
+        server.playSound(null, x, y, z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS,
+                volume * 0.85F, 0.55F + server.random.nextFloat() * 0.12F);
+        // air: the sweep itself, near its own pitch, which is the speed
+        server.playSound(null, x, y, z, SoundEvents.TRIDENT_RIPTIDE_1, SoundSource.PLAYERS,
+                volume * 0.5F, 1.35F + server.random.nextFloat() * 0.35F);
+        // transient: a single hard edge on top
+        server.playSound(null, x, y, z, SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS,
+                volume * 0.55F, 1.5F + server.random.nextFloat() * 0.4F);
+    }
+
     /** The sound a slash makes: the other mod's if it resolves, the vanilla sweep otherwise. */
     private static SoundEvent slashSound() {
         if (!resolvedSlashSound) {
@@ -394,9 +422,8 @@ public final class CrimsonSlash {
         if (!victim.isAlive()) {
             return;
         }
-        server.playSound(null, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
-                victim.getZ(), slashSound(), SoundSource.PLAYERS,
-                SLASH_SOUND_VOLUME, 0.75F + server.random.nextFloat() * 0.5F);
+        playSlash(server, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
+                victim.getZ(), SLASH_SOUND_VOLUME);
     }
 
     /**
@@ -499,9 +526,7 @@ public final class CrimsonSlash {
      * space rather than to mark a hit, and a spread keeps ten a second from reading as one tone.
      */
     public static void ambientSlashSound(ServerLevel server, Vec3 at) {
-        server.playSound(null, at.x, at.y, at.z, slashSound(),
-                SoundSource.PLAYERS, AMBIENT_SOUND_VOLUME,
-                0.6F + server.random.nextFloat() * 0.8F);
+        playSlash(server, at.x, at.y, at.z, AMBIENT_SOUND_VOLUME * 0.7F);
     }
 
     /**
