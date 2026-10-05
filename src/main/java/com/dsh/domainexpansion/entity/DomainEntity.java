@@ -226,7 +226,7 @@ public class DomainEntity extends Entity {
             // and they exist - and their positions can be drawn and checked first, which the model
             // could not be.
             plan.addAll(DomainStructure.ramSkull(
-                    BlockPos.containing(c.x, c.y - 0.5D, c.z), SKULL_YAW));
+                    BlockPos.containing(c.x, c.y - 1.5D, c.z), SKULL_YAW));
             // One place, one flag. The crimson branch used to return without setting this, so the
             // plan was rebuilt on every tick and the log recorded two hundred and eighty four
             // skulls stacked on the same block.
@@ -238,8 +238,10 @@ public class DomainEntity extends Entity {
             return;
         }
 
-        // aqua: four gates, one to each side, set in from the wall
-        double distance = radius() * 0.62D;
+        // aqua: four gates, one to each side, set out near the wall rather than in the middle.
+        // 0.62 put them about nineteen blocks out from a thirty block sphere, which was reported as
+        // crowding the centre; 0.86 is about twenty-six, leaving four blocks of clearance.
+        double distance = radius() * 0.86D;
         for (int i = 0; i < 4; i++) {
             double angle = Math.PI / 2.0D * i;
             BlockPos base = BlockPos.containing(

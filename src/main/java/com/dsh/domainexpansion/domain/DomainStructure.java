@@ -49,11 +49,17 @@ public final class DomainStructure {
     public static List<Piece> torii(BlockPos origin, double shearX, double shearZ, float yawDeg) {
         List<Piece> pieces = new ArrayList<>();
 
-        BlockState mossy = Blocks.MOSSY_COBBLESTONE.defaultBlockState();
-        BlockState mossySlab = Blocks.MOSSY_COBBLESTONE_SLAB.defaultBlockState();
-        BlockState stone = Blocks.STONE.defaultBlockState();
-        BlockState bricks = Blocks.STONE_BRICKS.defaultBlockState();
-        BlockState cracked = Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
+        // Timber and vermilion, which is what a torii is made of. The first version was mossy
+        // cobblestone and plain stone, and it read as a ruin rather than a gate - the schematics
+        // found online are all far too large to use, but their material lists are the useful part:
+        // pale timber for the columns, a painted red beam, dark capping, stone underfoot.
+        BlockState timber = Blocks.STRIPPED_BIRCH_LOG.defaultBlockState();
+        BlockState timberAlt = Blocks.BIRCH_PLANKS.defaultBlockState();
+        BlockState vermilion = Blocks.RED_TERRACOTTA.defaultBlockState();
+        BlockState vermilionAlt = Blocks.ORANGE_TERRACOTTA.defaultBlockState();
+        BlockState capping = Blocks.POLISHED_BLACKSTONE.defaultBlockState();
+        BlockState stone = Blocks.STONE_BRICKS.defaultBlockState();
+        BlockState mossy = Blocks.MOSSY_STONE_BRICKS.defaultBlockState();
         BlockState mossCarpet = Blocks.MOSS_CARPET.defaultBlockState();
 
         double yaw = Math.toRadians(yawDeg);
@@ -62,22 +68,17 @@ public final class DomainStructure {
         // is wide, and the first numbers made one that was wider than it was tall.
         int halfSpan = 3;
         int pillarHeight = TORII_HEIGHT;
+        int beamY = 13;
 
         // --- pillars, two by two, so they have weight from every side
         for (int side = -1; side <= 1; side += 2) {
             for (int dx = 0; dx != side * 2; dx += side) {
                 for (int dz = 0; dz != side * 2; dz += side) {
                     for (int y = 0; y < pillarHeight; y++) {
-                        // mossy most of the way up with stone showing through: a gate that has been
-                        // standing a while rather than a clean new one
-                        BlockState state = switch (y % 5) {
-                            case 0, 1, 2 -> mossy;
-                            case 3 -> stone;
-                            default -> bricks;
-                        };
-                        if (y < 2) {
-                            state = mossy;
-                        }
+                        // timber all the way up, with a painted band at the height the beam passes
+                        // through - which is how a real one is painted
+                        BlockState state = (y >= beamY - 1 && y <= beamY + 2)
+                                ? vermilionAlt : timber;
                         add(pieces, origin, yaw, shearX, shearZ,
                                 side * halfSpan + dx, y, dz, state);
                     }
@@ -85,24 +86,25 @@ public final class DomainStructure {
             }
         }
 
-        // --- footings: one wider than the pillar, with a mossy slab course above the ground
+        // --- footings: one wider than the pillar, in stone
         for (int side = -1; side <= 1; side += 2) {
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dz = -1; dz <= 1; dz++) {
-                    add(pieces, origin, yaw, shearX, shearZ, side * halfSpan + dx, 0, dz, mossy);
+                    add(pieces, origin, yaw, shearX, shearZ, side * halfSpan + dx, 0, dz, stone);
                     if (Math.abs(dx) == 1 && Math.abs(dz) == 1) {
                         add(pieces, origin, yaw, shearX, shearZ,
-                                side * halfSpan + dx, 1, dz, mossySlab);
+                                side * halfSpan + dx, 1, dz, mossy);
                     }
                 }
             }
         }
 
-        // --- the lower beam, running through the pillars and one block proud at each end
-        int beamY = 13;
+        // --- the lower beam, painted, running through the pillars and proud at each end
         for (int x = -halfSpan - 2; x <= halfSpan + 2; x++) {
-            add(pieces, origin, yaw, shearX, shearZ, x, beamY, 0, bricks);
-            add(pieces, origin, yaw, shearX, shearZ, x, beamY + 1, 0, stone);
+            add(pieces, origin, yaw, shearX, shearZ, x, beamY, 0, vermilion);
+            add(pieces, origin, yaw, shearX, shearZ, x, beamY, 1, vermilion);
+            add(pieces, origin, yaw, shearX, shearZ, x, beamY + 1, 0, timberAlt);
+            add(pieces, origin, yaw, shearX, shearZ, x, beamY + 1, 1, timberAlt);
         }
 
         // --- the upper beam and the lintel above it, each wider than the last, and the ends
@@ -111,23 +113,35 @@ public final class DomainStructure {
         int upperY = pillarHeight - 1;
         int lintelY = pillarHeight;
         for (int x = -halfSpan - 2; x <= halfSpan + 2; x++) {
-            add(pieces, origin, yaw, shearX, shearZ, x, upperY, 0, stone);
+            add(pieces, origin, yaw, shearX, shearZ, x, upperY, 0, vermilion);
+            add(pieces, origin, yaw, shearX, shearZ, x, upperY, 1, vermilion);
         }
         for (int x = -halfSpan - 4; x <= halfSpan + 4; x++) {
             // how far this column is from the middle, which is how high its end lifts
             int fromEnd = (halfSpan + 4) - Math.abs(x);
-            add(pieces, origin, yaw, shearX, shearZ, x, lintelY, 0, cracked);
+            // the capping is dark and slightly wider than everything below it, which is what gives
+            // a torii its silhouette
+            add(pieces, origin, yaw, shearX, shearZ, x, lintelY, -1, capping);
+            add(pieces, origin, yaw, shearX, shearZ, x, lintelY, 0, capping);
+            add(pieces, origin, yaw, shearX, shearZ, x, lintelY, 1, capping);
+            add(pieces, origin, yaw, shearX, shearZ, x, lintelY, 2, capping);
             if (fromEnd >= 2) {
-                add(pieces, origin, yaw, shearX, shearZ, x, lintelY + 1, 0, cracked);
+                add(pieces, origin, yaw, shearX, shearZ, x, lintelY + 1, 0, capping);
+                add(pieces, origin, yaw, shearX, shearZ, x, lintelY + 1, 1, capping);
             }
             if (fromEnd >= 5) {
                 add(pieces, origin, yaw, shearX, shearZ, x, lintelY + 2, 0, mossCarpet);
+                add(pieces, origin, yaw, shearX, shearZ, x, lintelY + 2, 1, mossCarpet);
             }
         }
 
-        // --- the plaque, a short stack between the beams
+        // --- the plaque, hanging between the beams
         for (int y = beamY + 2; y < upperY; y++) {
-            add(pieces, origin, yaw, shearX, shearZ, 0, y, 0, mossy);
+            add(pieces, origin, yaw, shearX, shearZ, 0, y, 0, timberAlt);
+            add(pieces, origin, yaw, shearX, shearZ, 0, y, 1, timberAlt);
+            if (y == beamY + 2) {
+                add(pieces, origin, yaw, shearX, shearZ, 0, y, -1, vermilion);
+            }
         }
 
         return pieces;
@@ -136,63 +150,73 @@ public final class DomainStructure {
     /**
      * Builds a ram skull.
      *
-     * Small, about three blocks, sitting on the floor. The shape that says "ram" is the horns: two
-     * curls sweeping out and back, each a chain of blocks stepping outward, upward and back so it
-     * reads as a spiral from the side. The eye sockets are the only dark blocks, which is what
-     * makes a pair of flat rectangles read as sockets.
+     * Roughly seven blocks long and five high, lying on the floor. The first version was three
+     * blocks and read as a lump - the fault was proportion more than detail: a sheep's skull is
+     * long, and almost all of its length is muzzle. So there is a short cranium at the back and a
+     * long tapering snout in front of it, and what makes it a ram rather than a sheep is the pair
+     * of heavy horns.
+     *
+     * The horns are the whole job. A ram's curl is a spiral: out from the skull, up, back, and then
+     * down and forward again to close. A chain of blocks stepping in all three axes at once is the
+     * only way to say that in blocks, so each horn is fourteen segments stepping out, then up, then
+     * back, then down and in - which from the side reads as a coil.
      */
     public static List<Piece> ramSkull(BlockPos origin, float yawDeg) {
         List<Piece> pieces = new ArrayList<>();
 
         BlockState bone = Blocks.BONE_BLOCK.defaultBlockState();
-        BlockState socket = Blocks.POLISHED_BLACKSTONE.defaultBlockState();
+        BlockState dark = Blocks.POLISHED_BLACKSTONE.defaultBlockState();
+        BlockState horn = Blocks.STRIPPED_DARK_OAK_LOG.defaultBlockState();
 
         double yaw = Math.toRadians(yawDeg);
 
-        // --- cranium, three by two by three, its base on the floor
+        // --- cranium: five wide, four deep, three high, sitting on the floor
         for (int x = -1; x <= 1; x++) {
-            for (int z = -1; z <= 1; z++) {
+            for (int z = 0; z <= 2; z++) {
                 for (int y = 0; y <= 1; y++) {
                     add(pieces, origin, yaw, 0.0D, 0.0D, x, y, z, bone);
                 }
             }
         }
 
-        // --- muzzle, stepped forward and narrower
-        for (int x = -1; x <= 1; x++) {
-            for (int y = 0; y <= 1; y++) {
-                add(pieces, origin, yaw, 0.0D, 0.0D, x, y, 2, bone);
+        // --- snout: three wide at the base, narrowing to one, and long - most of a sheep's skull
+        for (int z = 3; z <= 5; z++) {
+            int width = z <= 4 ? 1 : 0;
+            for (int x = -width; x <= width; x++) {
+                for (int y = 0; y <= (z <= 4 ? 1 : 0); y++) {
+                    add(pieces, origin, yaw, 0.0D, 0.0D, x, y, z, bone);
+                }
             }
         }
-        add(pieces, origin, yaw, 0.0D, 0.0D, 0, 0, 3, bone);
 
-        // --- eye sockets, set into the upper front corners
-        for (int x = -1; x <= 1; x += 2) {
-            add(pieces, origin, yaw, 0.0D, 0.0D, x, 1, 2, socket);
+        // --- the nasal opening, dark, at the very tip
+        add(pieces, origin, yaw, 0.0D, 0.0D, 0, 1, 5, dark);
+
+        // --- eye sockets, recessed into the cranium's front corners, with a brow above each
+        for (int side = -1; side <= 1; side += 2) {
+            add(pieces, origin, yaw, 0.0D, 0.0D, side, 1, 3, dark);
         }
 
-        // --- horns: one chain each side, stepping out once and then curling up and back. Out once
-        // only: stepping out on every segment made a pair of horns eleven blocks across and five
-        // tall, which is a pair of wings rather than a ram.
+        // --- horns: a spiral each side, fourteen segments. Out, up, back, then down and forward,
+        // which is the shape that says ram rather than sheep.
         for (int side = -1; side <= 1; side += 2) {
             int x = side * 2;
-            int y = 1;
-            int z = 0;
-            for (int segment = 0; segment < 6; segment++) {
-                add(pieces, origin, yaw, 0.0D, 0.0D, x, y, z, bone);
-                if (segment == 0) {
-                    x += side;
+            int y = 2;
+            int z = 1;
+            for (int segment = 0; segment < 9; segment++) {
+                add(pieces, origin, yaw, 0.0D, 0.0D, x, y, z, horn);
+                if (segment < 2) {
+                    x += side;              // out
                     y += 1;
-                    z -= 1;
-                } else if (segment < 3) {
+                } else if (segment < 4) {
+                    z += 1;                 // back
                     y += 1;
-                    z -= 1;
-                } else if (segment == 3) {
-                    // the curl turns back inward as it closes
-                    x -= side;
-                    z -= 1;
+                } else if (segment < 6) {
+                    z += 1;                 // and back down
+                    y -= 1;
                 } else {
-                    z -= 1;
+                    x -= side;              // in, closing the coil
+                    z += 1;
                 }
             }
         }
