@@ -184,10 +184,10 @@ public class DomainEntity extends Entity {
      * which is plainly leaning without being fallen over.
      */
     private static final float[][] TORII_LEANS = {
-            {12.0F, -8.0F},
-            {-10.0F, 14.0F},
-            {8.0F, 11.0F},
-            {-14.0F, -6.0F},
+            {14.0F, -9.0F},
+            {-11.0F, 15.0F},
+            {9.0F, 12.0F},
+            {-15.0F, -7.0F},
     };
 
     /** Blocks of structure laid per tick, so a gate rises over about a second and a half. */

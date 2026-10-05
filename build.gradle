@@ -97,6 +97,22 @@ repositories {
         url = 'https://maven.aliyun.com/repository/public'
     }
 
+    // ForgeGradle's own download cache, declared as a repository.
+    //
+    // The mapped Forge jar and its pom are already in that directory - it is laid out as a maven
+    // repository, net/minecraftforge/forge/... with the jar and the .pom beside it - but with the
+    // local proxy stopped, ForgeGradle has no repository that can serve net.minecraftforge:forge
+    // and compileJava fails with "no repositories are defined", which reads as a missing file when
+    // the file is in fact present and correct.
+    //
+    // Declaring the cache itself means the build no longer depends on the proxy being up: the
+    // mapped artifact from here, the reobfuscation tool from local-maven, and ordinary Central
+    // artifacts from Aliyun between them cover everything the compile classpath asks for.
+    maven {
+        name = 'ForgeGradleCache'
+        url = file('E:/dsh/.gradle-home3/caches/forge_gradle/minecraft_user_repo')
+    }
+
     // The reobfuscation step asks for net.minecraftforge:ForgeAutoRenamingTool:1.+ - a
     // dynamic version, so Gradle must read a maven-metadata.xml to choose a build. The tool
     // jar itself is already in ForgeGradle's own downloader cache, but the metadata is not,

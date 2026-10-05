@@ -32,7 +32,7 @@ import java.util.List;
 public final class DomainStructure {
 
     /** Height of a torii in blocks, footings included. */
-    public static final int TORII_HEIGHT = 13;
+    public static final int TORII_HEIGHT = 18;
 
     private DomainStructure() {
     }
@@ -55,7 +55,10 @@ public final class DomainStructure {
         BlockState stone = Blocks.STONE.defaultBlockState();
         BlockState cracked = Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
 
-        int halfSpan = 4;              // pillars sit four blocks either side of centre
+        // Three rather than four, and eighteen tall rather than thirteen: a torii is taller than
+        // it is wide, and the first set of numbers made one that was wider than it was tall, which
+        // the layout diagram showed plainly. Eleven blocks across against nineteen up.
+        int halfSpan = 3;              // pillars sit three blocks either side of centre
         int pillarHeight = TORII_HEIGHT;
 
         // --- pillars, two blocks thick so they have some weight. The second block is taken
@@ -82,7 +85,7 @@ public final class DomainStructure {
         }
 
         // --- the lower beam, running the full width so it meets both pillars
-        int beamY = 9;
+        int beamY = 13;
         for (int x = -halfSpan - 1; x <= halfSpan + 1; x++) {
             pieces.add(sheared(origin, x, beamY, 0, shearX, shearZ, stone));
             pieces.add(sheared(origin, x, beamY + 1, 0, shearX, shearZ, stone));
