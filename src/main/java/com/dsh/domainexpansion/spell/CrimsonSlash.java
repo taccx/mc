@@ -9,6 +9,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
@@ -243,6 +244,54 @@ public final class CrimsonSlash {
     /** Set once if the custom damage type cannot be resolved, so the log is not spammed. */
     private static boolean warnedMissingDamageType;
 
+    /**
+     * Sounds tried in order for a slash; the first that exists is used.
+     *
+     * These belong to another mod the pack already has installed, and that is deliberate. Nothing
+     * is copied into this jar and nothing is redistributed with it: the game has already loaded
+     * those sounds, so referring to them by id costs nothing and puts nothing of anyone else's into
+     * this project - which matters, because this project is on a public repository and those sounds
+     * are not the pack author's to give away.
+     *
+     * The names are guesses. Mod-tool generated projects conventionally register a sound under the
+     * file's own name, so a file at sounds/domain/shrine_slash.ogg is likely
+     * cursedfate:shrine_slash. They are tried in order, any that does not resolve is skipped, and
+     * if none of them do the vanilla sweep is used - so a wrong guess costs nothing audible and
+     * cannot crash.
+     */
+    private static final ResourceLocation[] SLASH_SOUND_CANDIDATES = {
+            ResourceLocation.fromNamespaceAndPath("cursedfate", "shrine_slash"),
+            ResourceLocation.fromNamespaceAndPath("cursedfate", "slash_hachi"),
+            ResourceLocation.fromNamespaceAndPath("cursedfate", "domain/shrine_slash"),
+            ResourceLocation.fromNamespaceAndPath("cursedfate", "jutsushiki/shrine/slash_hachi"),
+            ResourceLocation.fromNamespaceAndPath("cursedfate", "shrine_slash_power"),
+    };
+
+    /** Resolved once, so the lookup is not repeated thirty times a second. */
+    private static SoundEvent slashSound;
+    private static boolean resolvedSlashSound;
+
+    /** The sound a slash makes: the other mod's if it resolves, the vanilla sweep otherwise. */
+    private static SoundEvent slashSound() {
+        if (!resolvedSlashSound) {
+            resolvedSlashSound = true;
+            for (ResourceLocation id : SLASH_SOUND_CANDIDATES) {
+                SoundEvent found = net.minecraftforge.registries.ForgeRegistries.SOUND_EVENTS
+                        .getValue(id);
+                if (found != null) {
+                    slashSound = found;
+                    LOGGER.info("[DomainExpansion] slash sound taken from the installed mod: {}", id);
+                    return slashSound;
+                }
+            }
+            slashSound = SoundEvents.PLAYER_ATTACK_SWEEP;
+            LOGGER.info("[DomainExpansion] none of the other mod's slash sounds resolved; "
+                    + "using the vanilla sweep");
+        }
+        return slashSound;
+    }
+
+
     private CrimsonSlash() {
     }
 
@@ -346,7 +395,7 @@ public final class CrimsonSlash {
             return;
         }
         server.playSound(null, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
-                victim.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS,
+                victim.getZ(), slashSound(), SoundSource.PLAYERS,
                 SLASH_SOUND_VOLUME, 0.75F + server.random.nextFloat() * 0.5F);
     }
 
@@ -450,7 +499,7 @@ public final class CrimsonSlash {
      * space rather than to mark a hit, and a spread keeps ten a second from reading as one tone.
      */
     public static void ambientSlashSound(ServerLevel server, Vec3 at) {
-        server.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_SWEEP,
+        server.playSound(null, at.x, at.y, at.z, slashSound(),
                 SoundSource.PLAYERS, AMBIENT_SOUND_VOLUME,
                 0.6F + server.random.nextFloat() * 0.8F);
     }
