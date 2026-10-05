@@ -120,6 +120,12 @@ public final class SupportSpells {
         int duration = Math.max(1, spell.getCastTime(level));
         io.redspace.ironsspellbooks.api.magic.MagicData state =
                 new io.redspace.ironsspellbooks.api.magic.MagicData(false);
+        // A fresh MagicData has a null syncedSpellData - its constructor sets only the mob flag -
+        // and initiateCast writes the casting state into it, so without this it throws a
+        // NullPointerException and the domain's tick handler removes the whole domain, which is
+        // exactly what the log showed. Keyed to no player, so nothing is ever synced to anyone.
+        state.setSyncedData(
+                new io.redspace.ironsspellbooks.capabilities.magic.SyncedSpellData(-1));
         state.initiateCast(spell, level, duration, CastSource.COMMAND, "");
         LOGGER.info("[DomainExpansion] the_howling_tempest channelling at level {} for {} ticks",
                 level, duration);

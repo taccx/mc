@@ -159,6 +159,15 @@ public class DomainEntity extends Entity {
     private int tempestTicks;
 
     /**
+     * Set if the tempest driver threw, so it is not attempted again for this domain.
+     *
+     * The driver is optional decoration on top of a domain that took two minutes of cooldown and
+     * a hundred and twenty seconds of effect to set up, and it must not be able to take that down
+     * with it.
+     */
+    private boolean tempestFailed;
+
+    /**
      * Puts the domain spell's cooldown back, as the domain closes.
      *
      * The cooldown is taken off at cast time so the caster is free for as long as the domain is
@@ -486,7 +495,7 @@ public class DomainEntity extends Entity {
         // a level 3 aqua domain follows its opening with one Howling Tempest, delayed so it reads
         // as a follow-up to the domain rather than as part of its appearance, and then driven
         // tick by tick - see SupportSpells for why it cannot simply be cast
-        if (kind == DomainKind.AQUA && spellLevel >= DomainConfig.MAX_LEVEL) {
+        if (kind == DomainKind.AQUA && spellLevel >= DomainConfig.MAX_LEVEL && !tempestFailed) {
             Entity howlOwner = ownerUuid != null ? server.getEntity(ownerUuid) : null;
             if (howlOwner instanceof LivingEntity howlCaster) {
                 if (lifeTicks == HOWLING_TEMPEST_DELAY_TICKS && tempestCast == null) {
@@ -495,8 +504,21 @@ public class DomainEntity extends Entity {
                 }
                 if (tempestCast != null) {
                     tempestTicks++;
-                    if (SupportSpells.tickHowlingTempest(server, howlCaster, spellLevel, tempestCast)) {
+                    // Guarded, and this guard is the point. An NPE from the very first frame of
+                    // this driver threw out of the domain's tick, and the tick handler's response
+                    // to a failed tick is to remove the domain - so a broken auto-cast destroyed
+                    // the player's domain a second after they cast it. Nothing optional may be
+                    // allowed to do that: the domain is the thing that matters, the tempest is a
+                    // bonus. On failure it is switched off for this domain and logged.
+                    try {
+                        if (SupportSpells.tickHowlingTempest(server, howlCaster, spellLevel, tempestCast)) {
+                            tempestCast = null;
+                        }
+                    } catch (RuntimeException e) {
+                        tempestFailed = true;
                         tempestCast = null;
+                        LOGGER.error("[DomainExpansion] the_howling_tempest failed and has been "
+                                + "switched off for this domain; the domain itself is unaffected", e);
                     }
                 }
             }
