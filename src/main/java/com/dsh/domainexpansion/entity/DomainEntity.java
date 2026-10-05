@@ -4,6 +4,7 @@ import com.dsh.domainexpansion.DomainConfig;
 import com.dsh.domainexpansion.domain.Barrier;
 import com.dsh.domainexpansion.domain.DomainKind;
 import com.dsh.domainexpansion.domain.DomainStructure;
+import com.dsh.domainexpansion.domain.DomainStructures;
 import com.dsh.domainexpansion.domain.Guidance;
 import com.dsh.domainexpansion.domain.SphereShape;
 import com.dsh.domainexpansion.registry.ModBlocks;
@@ -203,6 +204,22 @@ public class DomainEntity extends Entity {
     /** Blocks of structure laid per tick, so a gate rises over about a second and a half. */
     private static final int STRUCTURE_PER_TICK = 8;
 
+    /** How many gallows to scatter through a crimson domain. */
+    private static final int GALLOWS_COUNT = 14;
+
+    /**
+     * The sunflower angle, 360 degrees over the golden ratio.
+     *
+     * Turning by this each step and taking the radius as the square root of the index spreads
+     * points evenly over a disc - no rows, no clumps, no pattern the eye can pick out. It is how
+     * seeds pack in a sunflower head, and it is the cheapest way to say "scattered" that actually
+     * is scattered.
+     */
+    private static final double GOLDEN_ANGLE = Math.PI * (3.0D - Math.sqrt(5.0D));
+
+    /** Which way the torii at the centre of an aqua domain faces. */
+    private static final float TORII_YAW = 0.0F;
+
     /**
      * The gate blocks still to be laid, ordered by height.
      *
@@ -215,59 +232,55 @@ public class DomainEntity extends Entity {
     private boolean structurePlanned;
 
     /**
-     * Puts up the domain's scenery.
+     * Puts up the domain's scenery, from the structures built by hand and extracted from their
+     * saves.
      *
-     * A ram skull at the middle of a crimson domain, as an entity: a skull is an organic shape and
-     * cuboids laid out by hand would be a poor one, so it is worth the model. Four torii around an
-     * aqua one, as blocks, leaning - the reference for them was built from blocks, and block
-     * positions can be calculated exactly instead of guessed at and corrected in game.
+     * A single torii at the middle of an aqua domain, because the gate is twenty blocks across and
+     * four of them will not fit in a sphere of radius thirty - the user built it large and said one
+     * would do. Gallows scattered through a crimson one, many of them and each turned differently:
+     * that structure is ten blocks on a one by three footprint, a post with a beam and a chain, so
+     * it is meant to be repeated rather than admired, and a field of them all facing the same way
+     * would read as a grid.
+     *
+     * The scattering is a sunflower: radius goes as the square root of the index and the angle
+     * turns by the golden angle, which spreads points evenly over a disc without rows or clumps.
+     * The facing is spread by a different irrational step so no two match.
      */
     private void planDecorations(ServerLevel server) {
         Vec3 c = center();
         List<DomainStructure.Piece> plan = new ArrayList<>();
 
         if (kind == DomainKind.CRIMSON) {
-            // A ram skull, as blocks. It was an entity with a model at first, on the grounds that a
-            // skull is organic and cuboids would make a poor one; it never rendered, and the cause
-            // could not be pinned down without another round in game. Bone blocks are less shapely
-            // and they exist - and their positions can be drawn and checked first, which the model
-            // could not be.
-            plan.addAll(DomainStructure.ramSkull(
-                    BlockPos.containing(c.x, c.y - 1.5D, c.z), SKULL_YAW));
-            // One place, one flag. The crimson branch used to return without setting this, so the
-            // plan was rebuilt on every tick and the log recorded two hundred and eighty four
-            // skulls stacked on the same block.
+            int count = GALLOWS_COUNT;
+            for (int i = 0; i < count; i++) {
+                // sunflower placement: even coverage of a disc, no rows
+                double r = radius() * 0.85D * Math.sqrt((i + 0.5D) / count);
+                double a = i * GOLDEN_ANGLE;
+                BlockPos base = BlockPos.containing(
+                        c.x + Math.cos(a) * r, c.y - 0.5D, c.z + Math.sin(a) * r);
+                // and a facing that is different for every one
+                float yaw = (float) (i * 47.0D % 360.0D);
+                plan.addAll(DomainStructures.build("gallows", base, yaw));
+            }
             plan.sort(Comparator.comparingInt(piece -> piece.pos().getY()));
             structureQueue = plan;
             structurePlanned = true;
-            LOGGER.info("[DomainExpansion] planned {} blocks for the ram skull at the crimson "
-                    + "domain's centre", plan.size());
+            LOGGER.info("[DomainExpansion] planned {} gallows ({} blocks) across the crimson domain",
+                    count, plan.size());
             return;
         }
 
-        // aqua: four gates, one to each side, set out near the wall rather than in the middle.
-        // 0.62 put them about nineteen blocks out from a thirty block sphere, which was reported as
-        // crowding the centre; 0.86 is about twenty-six, leaving four blocks of clearance.
-        double distance = radius() * 0.86D;
-        for (int i = 0; i < 4; i++) {
-            double angle = Math.PI / 2.0D * i;
-            BlockPos base = BlockPos.containing(
-                    c.x + Math.cos(angle) * distance, c.y - 0.5D, c.z + Math.sin(angle) * distance);
-            // Every gate faced the same way at first, because the generator laid them all out
-            // along x and nothing ever turned them. They now face one another around the domain -
-            // the gate on each side is turned to look across the middle, which is what a ring of
-            // gates wants and what reads best from the centre.
-            float yaw = (float) Math.toDegrees(angle) + 90.0F;
-            plan.addAll(DomainStructure.torii(base,
-                    Math.tan(Math.toRadians(TORII_LEANS[i][0])),
-                    Math.tan(Math.toRadians(TORII_LEANS[i][1])),
-                    yaw));
-        }
+        // aqua: one torii, at the centre. It is twenty blocks across and fourteen tall, so it fits
+        // in a thirty block sphere with room around it, and there is only one of it because there
+        // is only room for one.
+        BlockPos base = BlockPos.containing(c.x, c.y - 0.5D, c.z);
+        plan.addAll(DomainStructures.build("torii", base, TORII_YAW));
         plan.sort(Comparator.comparingInt(piece -> piece.pos().getY()));
         structureQueue = plan;
         structurePlanned = true;
-        LOGGER.info("[DomainExpansion] planned {} torii blocks around the aqua domain at radius {}",
-                plan.size(), (int) distance);
+        int[] size = DomainStructures.sizeOf("torii");
+        LOGGER.info("[DomainExpansion] planned one torii at the aqua domain's centre, {} blocks, "
+                + "{}x{}x{}", plan.size(), size[0], size[1], size[2]);
     }
 
     /**
