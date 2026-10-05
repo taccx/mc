@@ -453,7 +453,7 @@ public class DomainEntity extends Entity {
      * default seventy-six vertical would want about forty-five here; on a hundred and ten, about
      * sixty-six.
      */
-    private static final double VIEW_CONE_DEGREES = 60.0D;
+    private static final double VIEW_CONE_DEGREES = 90.0D;
 
     /**
      * How close to the eye a line may be placed, in blocks.
