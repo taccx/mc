@@ -867,6 +867,11 @@ public class DomainEntity extends Entity {
 
         BlockState current = server.getBlockState(pos);
         if (current.is(target.getBlock())) {
+            // the aqua floor still needs its bed laid when the water is already there, because a
+            // rebuild can find water left from a previous pass
+            if (kind == DomainKind.AQUA && placement == SphereShape.Placement.FLOOR) {
+                layAquaBed(server, pos, relX, relZ);
+            }
             return;
         }
         if (placement == SphereShape.Placement.FILLER && current.isAir()) {
@@ -880,6 +885,41 @@ public class DomainEntity extends Entity {
             server.removeBlockEntity(pos);
         }
         server.setBlock(pos, target, PLACE_FLAGS);
+
+        if (kind == DomainKind.AQUA && placement == SphereShape.Placement.FLOOR) {
+            layAquaBed(server, pos, relX, relZ);
+        }
+    }
+
+    /**
+     * Lays the course under the aqua domain's water.
+     *
+     * The water is one block deep and sits on whatever was there before, which in the open is
+     * grass or stone - so the domain's floor read as a puddle on the landscape rather than as
+     * something built. This puts a bed under it: stone brick with mossy stone brick through it, in
+     * a diagonal pattern so it is not a single flat colour seen through the water.
+     *
+     * Goes through the same recorder as everything else, so the ground underneath is restored with
+     * the rest of the domain and nothing is left behind.
+     */
+    private void layAquaBed(ServerLevel server, BlockPos pos, int relX, int relZ) {
+        BlockPos below = pos.below();
+        // Stone brick and mossy stone brick mixed as one surface, eight to two, scattered rather
+        // than in stripes: a stripe pattern at one in five reads as a pattern, and what is wanted
+        // is a floor that looks laid and then weathered.
+        //
+        // A cheap deterministic hash of the position rather than a random number, so the same
+        // block always comes out the same on every build and a rebuild does not reshuffle it.
+        int hash = Math.floorMod(relX * 7349 + relZ * 9151 + relX * relZ * 31, 10);
+        boolean mossy = hash < 2;
+        BlockState bed = mossy
+                ? Blocks.MOSSY_STONE_BRICKS.defaultBlockState()
+                : Blocks.STONE_BRICKS.defaultBlockState();
+        if (server.getBlockState(below).is(bed.getBlock())) {
+            return;
+        }
+        saveOriginal(server, below);
+        server.setBlock(below, bed, PLACE_FLAGS);
     }
 
     private void saveOriginal(ServerLevel server, BlockPos pos) {
