@@ -39,17 +39,22 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
                     "domain_expansion", "textures/entity/slash_line/slash_line_glow.png");
 
     /** How much wider than the line the halo is drawn. */
-    private static final float GLOW_SCALE = 1.08F;
+    private static final float GLOW_SCALE = 1.02F;
 
     /**
      * The halo's opacity.
      *
-     * 1.08 and 0.16 now, against 1.55 and 0.28. The wider, stronger version was added for the
-     * edge glow that was asked for, and it was most of what made the line look blurry: a soft
-     * band wider than the line itself, over the line, reads as a smudge rather than as a glowing
-     * edge. This is a rim tight against the line instead.
+     * 1.02 and 0.07 now, against 1.55 and 0.28 at the widest. The wider, stronger version was
+     * added for the edge glow that was asked for, and it was most of what made the mark look
+     * blurry: a soft band wider than the mark itself, over the mark, reads as a smudge rather than
+     * as a glowing edge.
+     *
+     * Where this ends up is a glow radius of zero, which is not a guess. The professional slash
+     * workflow this now follows sets its glow radius to zero and says why: the light diffusing is
+     * exactly the blurry look it does not want. The halo here is kept as a hairline rather than
+     * removed, so the mark still sits in front of the wall instead of being cut out of it.
      */
-    private static final float GLOW_ALPHA = 0.16F;
+    private static final float GLOW_ALPHA = 0.07F;
 
     /**
      * How far the line is pushed in front of its own halo, in blocks.
