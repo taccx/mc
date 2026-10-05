@@ -60,6 +60,15 @@ public final class DomainStructures {
             return List.of();
         }
 
+        // Centre the structure on the given point rather than hanging it off its own corner.
+        // The extractor wrote offsets from the bounding box's minimum corner, so placing at a
+        // position put the CORNER there - which is why a twenty block gate asked to stand in the
+        // middle of a domain stood half of itself to one side of it. Offsetting by half the
+        // footprint first is the fix, and it applies to any structure rather than just this one.
+        int[] size = sizeOf(key);
+        double cx = (size[0] - 1) / 2.0D;
+        double cz = (size[2] - 1) / 2.0D;
+
         double yaw = Math.toRadians(yawDeg);
         double cos = Math.cos(yaw);
         double sin = Math.sin(yaw);
@@ -68,8 +77,10 @@ public final class DomainStructures {
 
         for (int i = 0; i < offsets.size(); i++) {
             int[] o = offsets.get(i);
-            double rx = o[0] * cos - o[2] * sin;
-            double rz = o[0] * sin + o[2] * cos;
+            double px = o[0] - cx;
+            double pz = o[2] - cz;
+            double rx = px * cos - pz * sin;
+            double rz = px * sin + pz * cos;
             BlockState state = stateOf(ids[i], fallback);
             out.add(new DomainStructure.Piece(
                     origin.offset((int) Math.round(rx), o[1], (int) Math.round(rz)), state));

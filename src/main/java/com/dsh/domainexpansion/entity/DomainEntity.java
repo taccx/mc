@@ -205,7 +205,7 @@ public class DomainEntity extends Entity {
     private static final int STRUCTURE_PER_TICK = 8;
 
     /** How many gallows to scatter through a crimson domain. */
-    private static final int GALLOWS_COUNT = 14;
+    private static final int GALLOWS_COUNT = 40;
 
     /**
      * The sunflower angle, 360 degrees over the golden ratio.
