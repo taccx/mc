@@ -59,20 +59,54 @@ public final class SupportSpells {
     }
 
     /**
-     * Casts The Howling Tempest once, at the domain's own level.
+     * Advances the tempest by one tick.
      *
-     * Goes through the spell's own {@code castSpell} rather than being rebuilt from its parts, the
-     * way Overflow and Rainfall are, because this one is a single discrete effect rather than
-     * something that has to be kept alive for the domain's duration - so letting the spell do
-     * whatever it does is both simpler and more faithful.
-     *
-     * {@code castSpell} only accepts a server player, which the caster of a domain essentially
-     * always is; a non-player caster is logged and skipped rather than silently doing nothing.
-     *
-     * @return whether it was cast
+     * @return true once the channel has finished and there is nothing left to drive
      */
-    public static boolean castHowlingTempest(net.minecraft.server.level.ServerLevel server,
-                                             LivingEntity caster, int domainLevel) {
+    public static boolean tickHowlingTempest(net.minecraft.server.level.ServerLevel server,
+                                             LivingEntity caster, int domainLevel,
+                                             io.redspace.ironsspellbooks.api.magic.MagicData state) {
+        AbstractSpell spell = spell(HOWLING_TEMPEST_ID);
+        if (spell == null || state == null) {
+            if (spell == null && !warnedMissingTempest) {
+                warnedMissingTempest = true;
+                LOGGER.warn("[DomainExpansion] traveloptics:the_howling_tempest is not in the spell "
+                        + "registry; a level 3 aqua domain will not cast it");
+            }
+            return true;
+        }
+        int level = Math.max(1, Math.min(domainLevel, spell.getMaxLevel()));
+        spell.onServerCastTick(server, level, caster, state);
+        state.handleCastDuration();
+        if (state.getCastDurationRemaining() > 0) {
+            return false;
+        }
+        spell.onCast(server, level, caster, CastSource.COMMAND, state);
+        LOGGER.info("[DomainExpansion] the_howling_tempest finished channelling at level {} for {}",
+                level, caster.getName().getString());
+        return true;
+    }
+
+    /**
+     * A cast state for the tempest, or null if the spell cannot be found.
+     *
+     * Not a call to {@code castSpell}, which is what the first attempt did and why nothing
+     * happened. This spell is CONTINUOUS with a two hundred tick cast, and it produces its whole
+     * effect in {@code onServerCastTick} rather than in {@code onCast} - its {@code onCast} calls
+     * super and nothing else. Handing it to {@code castSpell} therefore starts a channel that
+     * nothing drives, and no storm ever arrives.
+     *
+     * So the channel is driven by hand, which comes down to the two calls in
+     * {@link #tickHowlingTempest}: {@code initiateCast} sets the countdown the spell reads, and
+     * {@code handleCastDuration} decrements it once a tick. Both read out of Iron's own MagicData
+     * rather than guessed at.
+     *
+     * The state is a fresh instance rather than the caster's, deliberately. Driving it on the
+     * caster would put them into a casting state - a cast bar, the casting animation, and
+     * something an outside effect could interrupt - for ten seconds because a domain opened.
+     */
+    public static io.redspace.ironsspellbooks.api.magic.MagicData newTempestState(
+            LivingEntity caster, int domainLevel) {
         AbstractSpell spell = spell(HOWLING_TEMPEST_ID);
         if (spell == null) {
             if (!warnedMissingTempest) {
@@ -80,18 +114,16 @@ public final class SupportSpells {
                 LOGGER.warn("[DomainExpansion] traveloptics:the_howling_tempest is not in the spell "
                         + "registry; a level 3 aqua domain will not cast it");
             }
-            return false;
-        }
-        if (!(caster instanceof net.minecraft.server.level.ServerPlayer player)) {
-            LOGGER.info("[DomainExpansion] the_howling_tempest skipped: caster {} is not a player",
-                    caster.getName().getString());
-            return false;
+            return null;
         }
         int level = Math.max(1, Math.min(domainLevel, spell.getMaxLevel()));
-        spell.castSpell(server, level, player, CastSource.COMMAND, false);
-        LOGGER.info("[DomainExpansion] the_howling_tempest cast at level {} by {}",
-                level, caster.getName().getString());
-        return true;
+        int duration = Math.max(1, spell.getCastTime(level));
+        io.redspace.ironsspellbooks.api.magic.MagicData state =
+                new io.redspace.ironsspellbooks.api.magic.MagicData(false);
+        state.initiateCast(spell, level, duration, CastSource.COMMAND, "");
+        LOGGER.info("[DomainExpansion] the_howling_tempest channelling at level {} for {} ticks",
+                level, duration);
+        return state;
     }
 
     /** The level the support spells run at, for a domain of the given level. */

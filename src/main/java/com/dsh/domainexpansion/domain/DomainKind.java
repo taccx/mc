@@ -71,6 +71,19 @@ public enum DomainKind {
         return this == CRIMSON ? ChatFormatting.RED : ChatFormatting.BLUE;
     }
 
+    /**
+     * The spell that opens this domain, for putting its cooldown back when the domain closes.
+     *
+     * The cooldown is deliberately not left on the caster while the domain is open - that was the
+     * complaint, five minutes of being unable to do anything after casting - so it is removed at
+     * cast and applied here instead, by whichever route the domain ends: recast, or simply running
+     * out.
+     */
+    public String spellId() {
+        return this == CRIMSON ? "domain_expansion:crimson_domain_expansion"
+                : "domain_expansion:domain_expansion";
+    }
+
     public BlockState shellState() {
         return shell.get().defaultBlockState();
     }

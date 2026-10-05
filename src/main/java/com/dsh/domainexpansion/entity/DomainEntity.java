@@ -14,6 +14,9 @@ import com.dsh.domainexpansion.spell.SupportSpells;
 import com.gametechbc.traveloptics.entity.projectiles.RainfallAoe;
 import com.gametechbc.traveloptics.entity.projectiles.overflow.FloodPoolEntity;
 import com.gametechbc.traveloptics.util.TravelopticsParticleHelper;
+import io.redspace.ironsspellbooks.api.magic.MagicData;
+import io.redspace.ironsspellbooks.api.registry.SpellRegistry;
+import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -141,6 +144,52 @@ public class DomainEntity extends Entity {
     private DomainKind kind = DomainKind.AQUA;
     private int lifeTicks;
 
+    /** So the cooldown is applied once, however many times closeDomain is reached. */
+    private boolean cooldownApplied;
+
+    /**
+     * The driven cast state for The Howling Tempest.
+     *
+     * A dedicated instance rather than the caster's own, so driving the spell does not put the
+     * player into a casting state - no cast bar, no animation, and nothing to interrupt.
+     */
+    private io.redspace.ironsspellbooks.api.magic.MagicData tempestCast;
+
+    /** Ticks the tempest has been driven for; the spell reads its own countdown, not this. */
+    private int tempestTicks;
+
+    /**
+     * Puts the domain spell's cooldown back, as the domain closes.
+     *
+     * The cooldown is taken off at cast time so the caster is free for as long as the domain is
+     * open - which was the complaint, five minutes of nothing after casting - and put back here.
+     * This is reached by every route a domain can end by: released by recasting, or simply
+     * expiring. The number is the spell's own, so it follows whatever that says.
+     */
+    private void applyRecastCooldown() {
+        if (cooldownApplied || !(level() instanceof ServerLevel server) || ownerUuid == null) {
+            return;
+        }
+        cooldownApplied = true;
+        if (!(server.getEntity(ownerUuid) instanceof ServerPlayer player)) {
+            return;
+        }
+        var registry = SpellRegistry.REGISTRY.get();
+        if (registry == null) {
+            return;
+        }
+        AbstractSpell spell = registry.getValue(ResourceLocation.tryParse(kind.spellId()));
+        if (spell == null) {
+            return;
+        }
+        // getSpellCooldown is already in ticks
+        int cooldownTicks = Math.max(1, spell.getSpellCooldown());
+        MagicData.getPlayerMagicData(player).getPlayerCooldowns()
+                .addCooldown(spell, cooldownTicks);
+        LOGGER.info("[DomainExpansion] cooldown of {}s applied to {} as the domain closed",
+                cooldownTicks / 20, player.getName().getString());
+    }
+
     /** Everything this domain has written, and what was there before. */
     private final Map<BlockPos, BlockData> originalBlocks = new HashMap<>(1 << 16, 0.75F);
 
@@ -235,9 +284,6 @@ public class DomainEntity extends Entity {
      * the two landing on the same frame.
      */
     private static final int HOWLING_TEMPEST_DELAY_TICKS = 40;
-
-    /** So the tempest is cast once, even though the condition stays true. */
-    private boolean howlingTempestCast;
 
     /** Strikes landed, reported in the heartbeat so the rate can be checked. */
     private int slashHits;
@@ -437,14 +483,22 @@ public class DomainEntity extends Entity {
             }
         }
 
-        // a level 3 aqua domain follows its opening with one Howling Tempest; delayed so it reads
-        // as a follow-up to the domain rather than as part of its appearance
-        if (kind == DomainKind.AQUA && spellLevel >= DomainConfig.MAX_LEVEL
-                && lifeTicks == HOWLING_TEMPEST_DELAY_TICKS && !howlingTempestCast) {
-            howlingTempestCast = true;
+        // a level 3 aqua domain follows its opening with one Howling Tempest, delayed so it reads
+        // as a follow-up to the domain rather than as part of its appearance, and then driven
+        // tick by tick - see SupportSpells for why it cannot simply be cast
+        if (kind == DomainKind.AQUA && spellLevel >= DomainConfig.MAX_LEVEL) {
             Entity howlOwner = ownerUuid != null ? server.getEntity(ownerUuid) : null;
             if (howlOwner instanceof LivingEntity howlCaster) {
-                SupportSpells.castHowlingTempest(server, howlCaster, spellLevel);
+                if (lifeTicks == HOWLING_TEMPEST_DELAY_TICKS && tempestCast == null) {
+                    tempestCast = SupportSpells.newTempestState(howlCaster, spellLevel);
+                    tempestTicks = 0;
+                }
+                if (tempestCast != null) {
+                    tempestTicks++;
+                    if (SupportSpells.tickHowlingTempest(server, howlCaster, spellLevel, tempestCast)) {
+                        tempestCast = null;
+                    }
+                }
             }
         }
 
@@ -621,6 +675,7 @@ public class DomainEntity extends Entity {
         discardAfterRestore = true;
         dismissSupportSpells();
         captured.clear();
+        applyRecastCooldown();
         blocksToRestore = new ArrayList<>(originalBlocks.keySet());
 
         // outermost first, so the ground under the player is the last thing to return and

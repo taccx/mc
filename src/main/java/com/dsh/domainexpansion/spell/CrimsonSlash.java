@@ -150,8 +150,23 @@ public final class CrimsonSlash {
      * sounds are positional, so an empty domain was silent, and a domain that goes quiet when
      * nothing is being cut does not read as one. These are played at random points in the cone
      * the viewer is looking at, so the domain has a voice of its own either way.
+     *
+     * Twenty, which is one a tick and therefore also the ceiling. Asking for more would put
+     * several on the same tick, and sounds that share a tick and a nearby position do not read as
+     * more slashes, they read as one louder one - the stacking that was asked to be capped. One a
+     * tick cannot stack with itself, and the spread of positions and pitches keeps consecutive
+     * ones from sounding like a repeat.
      */
-    public static final int AMBIENT_SOUNDS_PER_SECOND = 10;
+    public static final int AMBIENT_SOUNDS_PER_SECOND = 20;
+
+    /**
+     * Volume of an ambient slash, which is now the same as a victim's rather than quieter.
+     *
+     * At 0.65 of it the empty-domain layer was reported as too quiet to notice, which is fair: it
+     * was mixed down to sit under the per-victim sounds, and then became the only layer whenever
+     * the domain was empty.
+     */
+    public static final float AMBIENT_SOUND_VOLUME = 0.9F;
 
     /**
      * Damage as a fraction of what Blood Slash would deal.
@@ -383,8 +398,8 @@ public final class CrimsonSlash {
      */
     public static void ambientSlashSound(ServerLevel server, Vec3 at) {
         server.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_SWEEP,
-                SoundSource.PLAYERS, SLASH_SOUND_VOLUME * 0.65F,
-                0.7F + server.random.nextFloat() * 0.6F);
+                SoundSource.PLAYERS, AMBIENT_SOUND_VOLUME,
+                0.6F + server.random.nextFloat() * 0.8F);
     }
 
     /**
