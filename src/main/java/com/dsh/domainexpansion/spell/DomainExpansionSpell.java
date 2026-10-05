@@ -188,11 +188,6 @@ public class DomainExpansionSpell extends AbstractSpell {
                 // a change of domain rather than a dismissal.
                 existing.closeForRecast(server);
                 // the mana is spent before onCast runs; releasing your own domain should not cost
-                if (entity instanceof net.minecraft.server.level.ServerPlayer player) {
-                    // addMana clamps to the player's maximum itself
-                    io.redspace.ironsspellbooks.api.magic.MagicData
-                            .getPlayerMagicData(player).addMana(getManaCost(spellLevel));
-                }
                 LOGGER.info("[DomainExpansion] aqua domain released early by {}",
                         entity.getName().getString());
                 super.onCast(level, spellLevel, entity, castSource, playerMagicData);

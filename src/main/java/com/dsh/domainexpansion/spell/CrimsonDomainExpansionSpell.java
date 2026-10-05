@@ -104,11 +104,6 @@ public class CrimsonDomainExpansionSpell extends AbstractSpell {
             if (existing != null && existing.kind() == DomainKind.CRIMSON) {
                 existing.closeForRecast(server);
                 // the mana was already spent by the time onCast runs, and releasing should not cost
-                if (entity instanceof net.minecraft.server.level.ServerPlayer player) {
-                    // addMana clamps to the player's maximum itself
-                    io.redspace.ironsspellbooks.api.magic.MagicData
-                            .getPlayerMagicData(player).addMana(getManaCost(spellLevel));
-                }
                 LOGGER.info("[DomainExpansion] crimson domain released early by {}",
                         entity.getName().getString());
                 super.onCast(level, spellLevel, entity, castSource, playerMagicData);

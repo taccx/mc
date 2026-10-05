@@ -289,6 +289,21 @@ public final class CrimsonSlash {
      * One strike's damage, taken from the Blood Slash spell itself so the scaling - including
      * the caster's spell power - is exactly what casting it would have produced at that level.
      */
+    /**
+     * The raw spell power Blood Slash reports at the level a domain of this level runs it.
+     *
+     * Exposed only so the damage can be logged alongside what it was derived from: if this number
+     * does not move when the caster's gear changes, then the caster's own bonuses are not reaching
+     * it, and that is the question worth being able to answer without guessing.
+     */
+    public static float basePower(int domainLevel, LivingEntity caster) {
+        AbstractSpell spell = spell();
+        if (spell == null) {
+            return 10.0F;
+        }
+        return spell.getSpellPower(levelFor(domainLevel), caster);
+    }
+
     public static float damage(int domainLevel, LivingEntity caster) {
         AbstractSpell spell = spell();
         int level = levelFor(domainLevel);

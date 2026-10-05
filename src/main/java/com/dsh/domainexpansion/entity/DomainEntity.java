@@ -173,6 +173,9 @@ public class DomainEntity extends Entity {
     private final List<DomainDecorationEntity> decorations = new ArrayList<>();
     private boolean decorationsRemoved;
 
+    /** So the per-hit damage is logged once per domain rather than thirty times a second. */
+    private boolean slashDamageReported;
+
     /** Torii blocks actually laid, reported in the heartbeat. */
     private int structureBlocksLaid;
 
@@ -1355,6 +1358,18 @@ public class DomainEntity extends Entity {
         boolean soundTick = lifeTicks % CrimsonSlash.SOUND_EVERY_TICKS == 0;
         boolean flinchTick = lifeTicks % CrimsonSlash.FLINCH_EVERY_TICKS == 0;
         float damage = CrimsonSlash.damage(spellLevel, caster);
+        // Reported once per domain. The number is what says whether the caster's own spell power is
+        // reaching it, which is the question being asked - if base does not move when the caster's
+        // gear changes, the bonuses are not arriving. Logged once rather than in the calculation,
+        // which runs thirty times a second.
+        if (!slashDamageReported) {
+            slashDamageReported = true;
+            LOGGER.info("[DomainExpansion] slash damage: Blood Slash reports {} at level {}, "
+                    + "{} per hit after the x{} factor, {} hits a second",
+                    CrimsonSlash.basePower(spellLevel, caster),
+                    CrimsonSlash.levelFor(spellLevel), damage,
+                    CrimsonSlash.TRUE_DAMAGE_FRACTION, (int) CrimsonSlash.HITS_PER_SECOND);
+        }
 
         // per victim, not per tick: each entity gets its own allowance
         int bloodPerVictim = CrimsonSlash.allocationsThisTick(
