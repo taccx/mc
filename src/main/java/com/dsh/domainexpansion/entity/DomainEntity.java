@@ -238,6 +238,8 @@ public class DomainEntity extends Entity {
     private int slashLineSpawns;
     /** Slash lines dropped because the live ceiling was reached. */
     private int slashLineSkipped;
+    /** Half-second impacts delivered: a sound and a shove each. */
+    private int slashImpacts;
 
     /** Running totals of barrier corrections, so the log can prove the barrier is working. */
     private int barrierHeldInside;
@@ -409,9 +411,9 @@ public class DomainEntity extends Entity {
 
         if (lifeTicks % 100 == 0) {
             LOGGER.info("[DomainExpansion] t={}s phase={} r={} y={} written={} captured={} guided={}"
-                            + " slashes={} blood={}(+{} capped) lines={}(+{} capped)",
+                            + " slashes={} impacts={} blood={}(+{} capped) lines={}(+{} capped)",
                     lifeTicks / 20, phase, currentRadius, currentVerticalY, originalBlocks.size(),
-                    captured.size(), projectilesGuided, slashHits, bloodBursts, bloodBurstsSkipped,
+                    captured.size(), projectilesGuided, slashHits, slashImpacts, bloodBursts, bloodBurstsSkipped,
                     slashLineSpawns, slashLineSkipped);
         }
 
@@ -968,10 +970,19 @@ public class DomainEntity extends Entity {
         int bloodSpent = 0;
 
         for (LivingEntity victim : victims) {
+            // held in place while it is inside: the drag, refreshed about once a second
+            CrimsonSlash.applyDrag(victim);
+
             for (int hit = 0; hit < hits; hit++) {
                 // one sound per audible tick across all of them, not one per blow
                 CrimsonSlash.strike(server, victim, damage, audibleTick && hit == 0);
                 slashHits++;
+            }
+
+            // and the half-second impact: a whoosh and a shove towards the wall
+            if (audibleTick) {
+                CrimsonSlash.impact(server, victim, c);
+                slashImpacts++;
             }
 
             for (int i = 0; i < bloodPerVictim; i++) {

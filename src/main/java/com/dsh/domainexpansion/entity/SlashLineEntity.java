@@ -48,7 +48,7 @@ public class SlashLineEntity extends Entity {
      * that disappears against a bright background, and the reference the effect is following has
      * streaks with real weight to them.
      */
-    private static final float THICKNESS = 1.5F;
+    private static final float THICKNESS = 4.0F;
 
     public SlashLineEntity(EntityType<? extends SlashLineEntity> type, Level level) {
         super(type, level);

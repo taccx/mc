@@ -5,7 +5,12 @@ import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.util.ParticleHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The crimson domain's automatic attack: 猩红斩击, Iron's Spellbooks' Blood Slash, applied
@@ -102,6 +107,37 @@ public final class CrimsonSlash {
     public static final int BLOOD_PARTICLES_PER_BURST = 24;
 
     /**
+     * Slowness applied to everything being cut.
+     *
+     * The drag half of what was asked for - knockback or drag - and the half that suits a rate of
+     * a hundred strikes a second: knockback at that frequency shakes a victim apart rather than
+     * holding it. Three seconds of Slowness, refreshed whenever it drops below two, so it is
+     * reapplied about once a second instead of every tick - a packet per tick per entity for no
+     * visible difference.
+     */
+    public static final int DRAG_DURATION_TICKS = 60;
+    public static final int DRAG_REFRESH_BELOW = 40;
+    public static final int DRAG_AMPLIFIER = 1;
+
+    /**
+     * The shove applied on the audible strike, which is twice a second.
+     *
+     * Away from the domain's centre, so the pressure reads as being driven towards the wall
+     * rather than as random jitter. Small on purpose: a flinch, not a launch.
+     */
+    public static final double FLINCH_STRENGTH = 0.35D;
+    public static final double FLINCH_LIFT = 0.12D;
+
+    /**
+     * Volume and pitch of the slash sound.
+     *
+     * A vanilla sweep - the whoosh the game already uses for a sweep attack - because it is the
+     * right noise and carries no licensing question at all, which the sounds inside the mod this
+     * is modelled on would.
+     */
+    public static final float SLASH_SOUND_VOLUME = 0.9F;
+
+    /**
      * One strike in this many is allowed to make a sound.
      *
      * Every strike plays the victim's hurt sound, and a hundred a second is not a sound effect,
@@ -177,6 +213,50 @@ public final class CrimsonSlash {
             return 10.0F;
         }
         return spell.getSpellPower(level, caster);
+    }
+
+    /**
+     * Keeps the victim slowed while it is inside.
+     *
+     * Reapplied only when the effect is nearly gone, so this is about one packet per second per
+     * entity rather than one per tick. The icon is shown, which is deliberate: it makes the drag
+     * visible in a screenshot, and it is genuinely useful information for someone inside.
+     */
+    public static void applyDrag(LivingEntity victim) {
+        if (!victim.isAlive()) {
+            return;
+        }
+        MobEffectInstance current = victim.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
+        if (current != null && current.getDuration() > DRAG_REFRESH_BELOW
+                && current.getAmplifier() >= DRAG_AMPLIFIER) {
+            return;
+        }
+        victim.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN,
+                DRAG_DURATION_TICKS, DRAG_AMPLIFIER, false, true, true));
+    }
+
+    /**
+     * The half-second impact: a whoosh, and a shove away from the middle of the domain.
+     *
+     * Both on the audible tick rather than every strike. Thirty a second of either would be a
+     * buzz and a shaking, where twice a second reads as being hit by something.
+     */
+    public static void impact(ServerLevel server, LivingEntity victim, Vec3 from) {
+        if (!victim.isAlive()) {
+            return;
+        }
+        server.playSound(null, victim.getX(), victim.getY(), victim.getZ(),
+                SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS,
+                SLASH_SOUND_VOLUME, 0.85F + server.random.nextFloat() * 0.3F);
+
+        Vec3 away = victim.position().subtract(from);
+        if (away.lengthSqr() < 1.0E-4D) {
+            away = new Vec3(1.0D, 0.0D, 0.0D);
+        }
+        away = away.normalize().scale(FLINCH_STRENGTH);
+        victim.push(away.x, FLINCH_LIFT, away.z);
+        // without this the client keeps drawing the victim on its old path
+        victim.hurtMarked = true;
     }
 
     /**
