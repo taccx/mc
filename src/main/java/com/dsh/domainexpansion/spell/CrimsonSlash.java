@@ -315,10 +315,42 @@ public final class CrimsonSlash {
         return net.minecraft.world.phys.Vec3.ZERO;
     }
 
-    /** The sound a slash makes: this mod's own if it is present, the vanilla layers otherwise. */
+    /**
+     * The spell's own cast sound, which is the sound the domain makes when it opens.
+     *
+     * Taken from the spell rather than named, because it is not this mod's sound and guessing at an
+     * id is how the last attempt ended up silent. Reflection, so a missing API costs a nicer sound
+     * rather than a build.
+     */
+    private static SoundEvent spellCastSound() {
+        try {
+            AbstractSpell spell = spell();
+            if (spell == null) {
+                return null;
+            }
+            // getCastStartSound returns an Optional<SoundEvent>, not a SoundEvent - unwrap it, or
+            // the instanceof below is false for every spell and the cast sound is never found
+            Object got = spell.getClass().getMethod("getCastStartSound").invoke(spell);
+            if (got instanceof java.util.Optional<?> opt) {
+                return opt.orElse(null) instanceof SoundEvent event ? event : null;
+            }
+            return got instanceof SoundEvent event ? event : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /** The sound a slash makes: the spell's cast sound, this mod's own, the vanilla layers failing. */
     private static SoundEvent slashSound() {
         if (!resolvedSlashSound) {
             resolvedSlashSound = true;
+            SoundEvent cast = spellCastSound();
+            if (cast != null) {
+                slashSound = cast;
+                LOGGER.info("[DomainExpansion] slash sound taken from the domain spell's own cast "
+                        + "sound: {}", cast.getLocation());
+                return slashSound;
+            }
             for (ResourceLocation id : SLASH_SOUND_CANDIDATES) {
                 SoundEvent found = net.minecraftforge.registries.ForgeRegistries.SOUND_EVENTS
                         .getValue(id);
