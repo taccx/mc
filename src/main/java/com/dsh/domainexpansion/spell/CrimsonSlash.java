@@ -192,7 +192,7 @@ public final class CrimsonSlash {
      * absorption or invulnerability says, so leaving the damage where it was would have been a
      * large increase rather than a change of kind. This is the reduction that pays for it.
      */
-    public static final float TRUE_DAMAGE_FRACTION = 0.4F;
+    public static final float TRUE_DAMAGE_FRACTION = 3.2F;
 
     /**
      * The damage type for the crimson slash: registered in data, and listed in every vanilla
