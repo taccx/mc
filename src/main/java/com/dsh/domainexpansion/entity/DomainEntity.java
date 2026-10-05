@@ -183,6 +183,9 @@ public class DomainEntity extends Entity {
      * gate's height - twelve degrees over thirteen blocks is about two and a half blocks of drift,
      * which is plainly leaning without being fallen over.
      */
+    /** Which way the ram skull faces, in degrees. */
+    private static final float SKULL_YAW = 180.0F;
+
     private static final float[][] TORII_LEANS = {
             {14.0F, -9.0F},
             {-11.0F, 15.0F},
@@ -214,28 +217,42 @@ public class DomainEntity extends Entity {
      */
     private void planDecorations(ServerLevel server) {
         Vec3 c = center();
+        List<DomainStructure.Piece> plan = new ArrayList<>();
 
         if (kind == DomainKind.CRIMSON) {
-            DomainDecorationEntity skull = new DomainDecorationEntity(server);
-            skull.setVariant(DomainDecorationEntity.SKULL);
-            skull.moveTo(c.x, c.y + 0.1D, c.z, 0.0F, 0.0F);
-            server.addFreshEntity(skull);
-            decorations.add(skull);
-            LOGGER.info("[DomainExpansion] ram skull placed at the centre of the crimson domain");
+            // A ram skull, as blocks. It was an entity with a model at first, on the grounds that a
+            // skull is organic and cuboids would make a poor one; it never rendered, and the cause
+            // could not be pinned down without another round in game. Bone blocks are less shapely
+            // and they exist - and their positions can be drawn and checked first, which the model
+            // could not be.
+            plan.addAll(DomainStructure.ramSkull(
+                    BlockPos.containing(c.x, c.y - 0.5D, c.z), SKULL_YAW));
+            // One place, one flag. The crimson branch used to return without setting this, so the
+            // plan was rebuilt on every tick and the log recorded two hundred and eighty four
+            // skulls stacked on the same block.
+            plan.sort(Comparator.comparingInt(piece -> piece.pos().getY()));
+            structureQueue = plan;
+            structurePlanned = true;
+            LOGGER.info("[DomainExpansion] planned {} blocks for the ram skull at the crimson "
+                    + "domain's centre", plan.size());
             return;
         }
 
         // aqua: four gates, one to each side, set in from the wall
         double distance = radius() * 0.62D;
-        List<DomainStructure.Piece> plan = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
             double angle = Math.PI / 2.0D * i;
             BlockPos base = BlockPos.containing(
-                    c.x + Math.cos(angle) * distance, c.y, c.z + Math.sin(angle) * distance);
-            // the shear that leans the gate, derived from the angle for this one
+                    c.x + Math.cos(angle) * distance, c.y - 0.5D, c.z + Math.sin(angle) * distance);
+            // Every gate faced the same way at first, because the generator laid them all out
+            // along x and nothing ever turned them. They now face one another around the domain -
+            // the gate on each side is turned to look across the middle, which is what a ring of
+            // gates wants and what reads best from the centre.
+            float yaw = (float) Math.toDegrees(angle) + 90.0F;
             plan.addAll(DomainStructure.torii(base,
                     Math.tan(Math.toRadians(TORII_LEANS[i][0])),
-                    Math.tan(Math.toRadians(TORII_LEANS[i][1]))));
+                    Math.tan(Math.toRadians(TORII_LEANS[i][1])),
+                    yaw));
         }
         plan.sort(Comparator.comparingInt(piece -> piece.pos().getY()));
         structureQueue = plan;
