@@ -268,6 +268,39 @@ public class DomainEntity extends Entity {
     }
 
     /**
+     * Takes this domain's cooldown off the caster, once the cast pipeline has finished with it.
+     *
+     * This cannot be done from the spell. Reading Iron's cast pipeline, the order inside
+     * {@code castSpell} is: mana, then {@code onCast}, and only then {@code addCooldown} - so a
+     * removal from inside onCast is overwritten a line later, which is precisely why the caster
+     * still had a cooldown while their domain was open after the first attempt. It is done here
+     * instead, from the domain's own first ticks, by which point the pipeline has finished.
+     *
+     * Syncing afterwards is not optional either: the cooldown is displayed on the client from its
+     * own copy, so removing it server-side alone would leave the icon showing a cooldown that no
+     * longer exists.
+     */
+    private void clearOwnCooldown(ServerLevel server) {
+        if (!(server.getEntity(ownerUuid) instanceof ServerPlayer player)) {
+            return;
+        }
+        var registry = SpellRegistry.REGISTRY.get();
+        if (registry == null) {
+            return;
+        }
+        AbstractSpell spell = registry.getValue(ResourceLocation.tryParse(kind.spellId()));
+        if (spell == null) {
+            return;
+        }
+        var cooldowns = MagicData.getPlayerMagicData(player).getPlayerCooldowns();
+        if (cooldowns.removeCooldown(spell.getSpellId())) {
+            cooldowns.syncToPlayer(player);
+            LOGGER.info("[DomainExpansion] cooldown cleared for {} while the domain is open",
+                    player.getName().getString());
+        }
+    }
+
+    /**
      * Puts the domain spell's cooldown back, as the domain closes.
      *
      * The cooldown is taken off at cast time so the caster is free for as long as the domain is
@@ -293,8 +326,10 @@ public class DomainEntity extends Entity {
         }
         // getSpellCooldown is already in ticks
         int cooldownTicks = Math.max(1, spell.getSpellCooldown());
-        MagicData.getPlayerMagicData(player).getPlayerCooldowns()
-                .addCooldown(spell, cooldownTicks);
+        var cooldowns = MagicData.getPlayerMagicData(player).getPlayerCooldowns();
+        cooldowns.addCooldown(spell, cooldownTicks);
+        // and tell the client, or the icon will not appear until it next re-syncs
+        cooldowns.syncToPlayer(player);
         LOGGER.info("[DomainExpansion] cooldown of {}s applied to {} as the domain closed",
                 cooldownTicks / 20, player.getName().getString());
     }
@@ -583,6 +618,14 @@ public class DomainEntity extends Entity {
                     lifeTicks / 20, phase, currentRadius, currentVerticalY, originalBlocks.size(),
                     captured.size(), projectilesGuided, slashHits, slashSounds, slashFlinches, bloodBursts, bloodBurstsSkipped,
                     slashLineSpawns, slashLineSkipped, structureBlocksLaid);
+        }
+
+        // The cooldown is cleared here rather than by the spell: the cast pipeline applies it
+        // after onCast returns, so anything the spell does about it is overwritten. The first few
+        // ticks are after that, and repeating it for a handful of ticks costs nothing and does not
+        // depend on exactly which tick the pipeline finished on.
+        if (lifeTicks <= 5) {
+            clearOwnCooldown(server);
         }
 
         if (lifeTicks % PERIODIC_INTERVAL == 0) {

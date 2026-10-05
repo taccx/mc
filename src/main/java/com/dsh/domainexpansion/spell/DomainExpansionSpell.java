@@ -212,10 +212,6 @@ public class DomainExpansionSpell extends AbstractSpell {
             domain.initialize(server);
             LOGGER.info("[DomainExpansion] cast by {} at level {} from {}",
                     entity.getName().getString(), spellLevel, castSource);
-            // Taken off here and put back when the domain closes, so the caster is free while it is
-            // open. Asked for directly: minutes of doing nothing after casting, with no way to end
-            // the domain early, is not a cooldown, it is a timeout.
-            clearOwnCooldown(entity);
         }
         super.onCast(level, spellLevel, entity, castSource, playerMagicData);
     }
@@ -252,18 +248,4 @@ public class DomainExpansionSpell extends AbstractSpell {
         return true;
     }
 
-    /**
-     * Removes this spell's own cooldown from the caster, right after it was applied.
-     *
-     * The cooldown is applied by the cast pipeline before onCast runs, so it cannot be prevented -
-     * only taken off again here. The domain puts it back when it closes, which covers both ways it
-     * can end.
-     */
-    private void clearOwnCooldown(net.minecraft.world.entity.LivingEntity caster) {
-        if (!(caster instanceof net.minecraft.server.level.ServerPlayer player)) {
-            return;
-        }
-        io.redspace.ironsspellbooks.api.magic.MagicData.getPlayerMagicData(player)
-                .getPlayerCooldowns().removeCooldown(getSpellId());
-    }
 }
