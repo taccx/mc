@@ -1,6 +1,7 @@
 package com.dsh.domainexpansion.registry;
 
 import com.dsh.domainexpansion.DomainExpansion;
+import com.dsh.domainexpansion.entity.DomainDecorationEntity;
 import com.dsh.domainexpansion.entity.DomainEntity;
 import com.dsh.domainexpansion.entity.SlashLineEntity;
 import net.minecraft.world.entity.EntityType;
@@ -49,4 +50,22 @@ public final class ModEntities {
                     .fireImmune()
                     .noSave()
                     .build("slash_line"));
+
+    /**
+     * Domain scenery: the ram skull, or one of the four torii.
+     *
+     * Sized for the larger of the two, since one entity type covers both and the bounding box is
+     * what the client culls against. Updates are slow because it never moves - the rise is worked
+     * out in the renderer from the entity's own age, which both sides count independently.
+     */
+    public static final RegistryObject<EntityType<DomainDecorationEntity>> DOMAIN_DECORATION =
+            ENTITIES.register("domain_decoration", () -> EntityType.Builder
+                    .<DomainDecorationEntity>of(DomainDecorationEntity::new, MobCategory.MISC)
+                    .sized(4.0F, 5.5F)
+                    .clientTrackingRange(24)
+                    .updateInterval(20)
+                    .noSummon()
+                    .fireImmune()
+                    .noSave()
+                    .build("domain_decoration"));
 }

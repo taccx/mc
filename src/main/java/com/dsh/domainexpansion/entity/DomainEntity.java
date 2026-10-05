@@ -3,6 +3,7 @@ package com.dsh.domainexpansion.entity;
 import com.dsh.domainexpansion.DomainConfig;
 import com.dsh.domainexpansion.domain.Barrier;
 import com.dsh.domainexpansion.domain.DomainKind;
+import com.dsh.domainexpansion.domain.DomainStructure;
 import com.dsh.domainexpansion.domain.Guidance;
 import com.dsh.domainexpansion.domain.SphereShape;
 import com.dsh.domainexpansion.registry.ModBlocks;
@@ -166,6 +167,105 @@ public class DomainEntity extends Entity {
      * with it.
      */
     private boolean tempestFailed;
+
+    /** The scenery this domain put up, so it can be taken down with the domain. */
+    private final List<DomainDecorationEntity> decorations = new ArrayList<>();
+    private boolean decorationsRemoved;
+
+    /** Torii blocks actually laid, reported in the heartbeat. */
+    private int structureBlocksLaid;
+
+    /**
+     * The lean each of the four torii gets, in degrees: x then z, one row per gate.
+     *
+     * Fixed rather than random, so the same gate always leans the same way and the arrangement can
+     * be described, adjusted, or recognised in a screenshot. A shear of this many degrees over the
+     * gate's height - twelve degrees over thirteen blocks is about two and a half blocks of drift,
+     * which is plainly leaning without being fallen over.
+     */
+    private static final float[][] TORII_LEANS = {
+            {12.0F, -8.0F},
+            {-10.0F, 14.0F},
+            {8.0F, 11.0F},
+            {-14.0F, -6.0F},
+    };
+
+    /** Blocks of structure laid per tick, so a gate rises over about a second and a half. */
+    private static final int STRUCTURE_PER_TICK = 8;
+
+    /**
+     * The gate blocks still to be laid, ordered by height.
+     *
+     * Ordered so the structure comes up out of the floor a course at a time, which is the same
+     * trick the sphere itself uses. Sorting once when the plan is made is cheaper than working out
+     * the height each tick.
+     */
+    private List<DomainStructure.Piece> structureQueue = new ArrayList<>();
+    private int structureIndex;
+    private boolean structurePlanned;
+
+    /**
+     * Puts up the domain's scenery.
+     *
+     * A ram skull at the middle of a crimson domain, as an entity: a skull is an organic shape and
+     * cuboids laid out by hand would be a poor one, so it is worth the model. Four torii around an
+     * aqua one, as blocks, leaning - the reference for them was built from blocks, and block
+     * positions can be calculated exactly instead of guessed at and corrected in game.
+     */
+    private void planDecorations(ServerLevel server) {
+        Vec3 c = center();
+
+        if (kind == DomainKind.CRIMSON) {
+            DomainDecorationEntity skull = new DomainDecorationEntity(server);
+            skull.setVariant(DomainDecorationEntity.SKULL);
+            skull.moveTo(c.x, c.y + 0.1D, c.z, 0.0F, 0.0F);
+            server.addFreshEntity(skull);
+            decorations.add(skull);
+            LOGGER.info("[DomainExpansion] ram skull placed at the centre of the crimson domain");
+            return;
+        }
+
+        // aqua: four gates, one to each side, set in from the wall
+        double distance = radius() * 0.62D;
+        List<DomainStructure.Piece> plan = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            double angle = Math.PI / 2.0D * i;
+            BlockPos base = BlockPos.containing(
+                    c.x + Math.cos(angle) * distance, c.y, c.z + Math.sin(angle) * distance);
+            // the shear that leans the gate, derived from the angle for this one
+            plan.addAll(DomainStructure.torii(base,
+                    Math.tan(Math.toRadians(TORII_LEANS[i][0])),
+                    Math.tan(Math.toRadians(TORII_LEANS[i][1]))));
+        }
+        plan.sort(Comparator.comparingInt(piece -> piece.pos().getY()));
+        structureQueue = plan;
+        structurePlanned = true;
+        LOGGER.info("[DomainExpansion] planned {} torii blocks around the aqua domain at radius {}",
+                plan.size(), (int) distance);
+    }
+
+    /**
+     * Lays the next course of structure, bottom up.
+     *
+     * Goes through the same block writer the sphere uses, so every block placed here is recorded
+     * and restored with the rest of the domain - there is no second list to keep in step and no
+     * way for a gate to be left behind after the domain closes.
+     */
+    private void advanceStructures(ServerLevel server) {
+        int laid = 0;
+        while (structureIndex < structureQueue.size() && laid < STRUCTURE_PER_TICK) {
+            DomainStructure.Piece piece = structureQueue.get(structureIndex++);
+            BlockPos pos = piece.pos();
+            // never overwrite anything already there: the sphere's own blocks, terrain, or the
+            // player. A gate that is partly missing is better than one that eats the floor
+            if (level().getBlockState(pos).isAir()) {
+                saveOriginal(server, pos);
+                server.setBlock(pos, piece.state(), PLACE_FLAGS);
+                structureBlocksLaid++;
+            }
+            laid++;
+        }
+    }
 
     /**
      * Puts the domain spell's cooldown back, as the domain closes.
@@ -479,10 +579,10 @@ public class DomainEntity extends Entity {
 
         if (lifeTicks % 100 == 0) {
             LOGGER.info("[DomainExpansion] t={}s phase={} r={} y={} written={} captured={} guided={}"
-                            + " slashes={} sounds={} flinches={} blood={}(+{} capped) lines={}(+{} capped)",
+                            + " slashes={} sounds={} flinches={} blood={}(+{} capped) lines={}(+{} capped) structure={}",
                     lifeTicks / 20, phase, currentRadius, currentVerticalY, originalBlocks.size(),
                     captured.size(), projectilesGuided, slashHits, slashSounds, slashFlinches, bloodBursts, bloodBurstsSkipped,
-                    slashLineSpawns, slashLineSkipped);
+                    slashLineSpawns, slashLineSkipped, structureBlocksLaid);
         }
 
         if (lifeTicks % PERIODIC_INTERVAL == 0) {
@@ -490,6 +590,23 @@ public class DomainEntity extends Entity {
             if (kind.hasSupportSpells()) {
                 maintainSupportSpells(server);
             }
+        }
+
+        // scenery goes up once the sphere is finished, which is the moment the floor has appeared
+        if (buildComplete && !structurePlanned) {
+            planDecorations(server);
+        }
+        if (structureIndex < structureQueue.size()) {
+            advanceStructures(server);
+        }
+
+        // and comes back down with the domain
+        if (restoring && !decorationsRemoved) {
+            decorationsRemoved = true;
+            for (DomainDecorationEntity piece : decorations) {
+                piece.discard();
+            }
+            decorations.clear();
         }
 
         // a level 3 aqua domain follows its opening with one Howling Tempest, delayed so it reads
