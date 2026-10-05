@@ -238,8 +238,10 @@ public class DomainEntity extends Entity {
     private int slashLineSpawns;
     /** Slash lines dropped because the live ceiling was reached. */
     private int slashLineSkipped;
-    /** Half-second impacts delivered: a sound and a shove each. */
-    private int slashImpacts;
+    /** Slash sounds played. */
+    private int slashSounds;
+    /** Shoves delivered. */
+    private int slashFlinches;
 
     /** Running totals of barrier corrections, so the log can prove the barrier is working. */
     private int barrierHeldInside;
@@ -411,9 +413,9 @@ public class DomainEntity extends Entity {
 
         if (lifeTicks % 100 == 0) {
             LOGGER.info("[DomainExpansion] t={}s phase={} r={} y={} written={} captured={} guided={}"
-                            + " slashes={} impacts={} blood={}(+{} capped) lines={}(+{} capped)",
+                            + " slashes={} sounds={} flinches={} blood={}(+{} capped) lines={}(+{} capped)",
                     lifeTicks / 20, phase, currentRadius, currentVerticalY, originalBlocks.size(),
-                    captured.size(), projectilesGuided, slashHits, slashImpacts, bloodBursts, bloodBurstsSkipped,
+                    captured.size(), projectilesGuided, slashHits, slashSounds, slashFlinches, bloodBursts, bloodBurstsSkipped,
                     slashLineSpawns, slashLineSkipped);
         }
 
@@ -961,7 +963,8 @@ public class DomainEntity extends Entity {
         }
 
         int hits = CrimsonSlash.hitsForTick(lifeTicks);
-        boolean audibleTick = lifeTicks % CrimsonSlash.AUDIBLE_EVERY_TICKS == 0;
+        boolean soundTick = lifeTicks % CrimsonSlash.SOUND_EVERY_TICKS == 0;
+        boolean flinchTick = lifeTicks % CrimsonSlash.FLINCH_EVERY_TICKS == 0;
         float damage = CrimsonSlash.damage(spellLevel, caster);
 
         // per victim, not per tick: each entity gets its own allowance
@@ -974,15 +977,18 @@ public class DomainEntity extends Entity {
             CrimsonSlash.applyDrag(victim);
 
             for (int hit = 0; hit < hits; hit++) {
-                // one sound per audible tick across all of them, not one per blow
-                CrimsonSlash.strike(server, victim, damage, audibleTick && hit == 0);
+                CrimsonSlash.strike(server, victim, damage);
                 slashHits++;
             }
 
-            // and the half-second impact: a whoosh and a shove towards the wall
-            if (audibleTick) {
-                CrimsonSlash.impact(server, victim, c);
-                slashImpacts++;
+            // the flurry: a slash heard ten times a second, and a shove twice a second
+            if (soundTick) {
+                CrimsonSlash.slashSound(server, victim);
+                slashSounds++;
+            }
+            if (flinchTick) {
+                CrimsonSlash.flinch(victim, c);
+                slashFlinches++;
             }
 
             for (int i = 0; i < bloodPerVictim; i++) {

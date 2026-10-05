@@ -73,12 +73,11 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
         // the line sweeps out and then fades: full length by a third of the way through, gone by
         // the end. Without this a line simply appears and vanishes, which reads as a flicker.
         float grow = Math.min(1.0F, progress * 3.0F);
-        // cubed rather than squared, so the line holds most of its strength for most of its life
-        // and drops away at the end instead of fading out from the moment it appears. Reported as
-        // the lines looking faint, and a curve that is already at half opacity by the midpoint was
-        // part of that.
+        // cubed rather than squared, so the mark holds most of its strength for most of its life
+        // and drops away at the end instead of fading out from the moment it appears.
         float fade = 1.0F - progress * progress * progress;
-        float half = entity.length() * 0.5F * grow;
+        // square: the mark is two crossing cuts, so it needs a square to live in
+        float half = entity.size() * 0.5F * grow;
         float alpha = Math.max(0.0F, fade);
         if (alpha <= 0.01F) {
             return;
@@ -90,18 +89,17 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
         // a fixed roll per entity, so lines crossing the view are not all edge-on
         poseStack.mulPose(Axis.ZP.rotationDegrees((entity.getId() * 37) % 360));
 
-        float thickness = entity.getDimensions(entity.getPose()).height * 0.5F;
         boolean red = entity.variant() == 1;
 
-        // halo first, so the line draws over it
+        // halo first, so the mark draws over it
         quad(buffers.getBuffer(SlashRenderTypes.of(GLOW)),
-                poseStack, half * 1.04F, thickness * GLOW_SCALE,
+                poseStack, half * GLOW_SCALE, half * GLOW_SCALE,
                 red ? 1.0F : 0.82F, red ? 0.18F : 0.90F, red ? 0.24F : 1.0F,
                 alpha * GLOW_ALPHA, 0.0F);
 
-        // then the line, pushed forward so the two cannot z-fight
+        // then the mark, pushed forward so the two cannot z-fight
         quad(buffers.getBuffer(SlashRenderTypes.of(red ? RED : WHITE)),
-                poseStack, half, thickness, 1.0F, 1.0F, 1.0F, alpha, CORE_OFFSET);
+                poseStack, half, half, 1.0F, 1.0F, 1.0F, alpha, CORE_OFFSET);
 
         poseStack.popPose();
         super.render(entity, entityYaw, partialTick, poseStack, buffers, packedLight);

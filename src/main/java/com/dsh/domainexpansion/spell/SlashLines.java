@@ -43,14 +43,15 @@ public final class SlashLines {
     private static final float RED_CHANCE = 0.35F;
 
     /**
-     * Line lengths, in blocks.
+     * Mark sizes, in blocks, on both axes.
      *
-     * Lengthened along with the thickness. A 1.5 block thick line only four blocks long is a
-     * stub, not a slash - at this weight the lines need to be long enough to read as streaks
-     * crossing the sphere, which is also what the reference does.
+     * Four to twelve, which is a slash mark rather than a streak across the sphere. Twenty to
+     * forty-five block long strips were tried first and tuned several times without ever reading
+     * as a slash: a thin bar is a line, not a cut. Marks this size are small enough that a dozen
+     * of them can cross the view at once and each still be legible as two crossing cuts.
      */
-    private static final float MIN_LENGTH = 20.0F;
-    private static final float MAX_LENGTH = 45.0F;
+    private static final float MIN_SIZE = 4.0F;
+    private static final float MAX_SIZE = 12.0F;
 
     private SlashLines() {
     }
@@ -67,7 +68,7 @@ public final class SlashLines {
 
         SlashLineEntity line = new SlashLineEntity(server);
         line.setVariant(random.nextFloat() < RED_CHANCE ? RED : WHITE);
-        line.setLength(MIN_LENGTH + random.nextFloat() * (MAX_LENGTH - MIN_LENGTH));
+        line.setSize(MIN_SIZE + random.nextFloat() * (MAX_SIZE - MIN_SIZE));
         line.moveTo(origin.x, origin.y, origin.z);
         line.setYRot(random.nextFloat() * 360.0F);
         line.setXRot((random.nextFloat() - 0.5F) * 70.0F);

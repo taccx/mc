@@ -138,14 +138,25 @@ public final class CrimsonSlash {
     public static final float SLASH_SOUND_VOLUME = 0.9F;
 
     /**
-     * One strike in this many is allowed to make a sound.
+     * How often a slash is heard, in ticks. Two, which is ten a second.
      *
-     * Every strike plays the victim's hurt sound, and a hundred a second is not a sound effect,
-     * it is a buzzsaw. The rest are applied with the victim silenced for the instant of the blow,
-     * which is a server-side flag and does not reach the client, so nothing else about the
-     * entity is affected. Two a second is enough to hear that something is happening.
+     * It was ten ticks - twice a second - and was reported as far too sparse, with the ask being
+     * to sound like being chopped into mince, which is fair: the effect the domain is following
+     * is a continuous flurry, not a series of distinct hits.
+     *
+     * The victim's own hurt sound is no longer part of this at all. Every strike is silent now
+     * and the slash itself is the sound, because ten hurt sounds a second is a generic grunt
+     * repeated, where ten whooshes is a flurry.
      */
-    public static final int AUDIBLE_EVERY_TICKS = 10;
+    public static final int SOUND_EVERY_TICKS = 2;
+
+    /**
+     * How often a victim is shoved, in ticks. Ten, so twice a second.
+     *
+     * Deliberately slower than the sound. The flurry should be audible continuously but the
+     * shove at that rate would shake a victim apart rather than drive it anywhere.
+     */
+    public static final int FLINCH_EVERY_TICKS = 10;
 
     private static final ResourceLocation BLOOD_SLASH_ID =
             ResourceLocation.fromNamespaceAndPath("irons_spellbooks", "blood_slash");
@@ -236,19 +247,28 @@ public final class CrimsonSlash {
     }
 
     /**
-     * The half-second impact: a whoosh, and a shove away from the middle of the domain.
-     *
-     * Both on the audible tick rather than every strike. Thirty a second of either would be a
-     * buzz and a shaking, where twice a second reads as being hit by something.
+     * The flurry: one slash heard, ten times a second, per victim.
      */
-    public static void impact(ServerLevel server, LivingEntity victim, Vec3 from) {
+    public static void slashSound(ServerLevel server, LivingEntity victim) {
         if (!victim.isAlive()) {
             return;
         }
-        server.playSound(null, victim.getX(), victim.getY(), victim.getZ(),
-                SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS,
-                SLASH_SOUND_VOLUME, 0.85F + server.random.nextFloat() * 0.3F);
+        server.playSound(null, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
+                victim.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS,
+                SLASH_SOUND_VOLUME, 0.75F + server.random.nextFloat() * 0.5F);
+    }
 
+    /**
+     * The shove, twice a second: pushed away from the middle of the domain.
+     *
+     * Slower than the sound on purpose - at ten a second a victim would be shaken apart rather
+     * than driven anywhere - and aimed outwards so the pressure reads as being forced towards the
+     * wall rather than as random jitter.
+     */
+    public static void flinch(LivingEntity victim, Vec3 from) {
+        if (!victim.isAlive()) {
+            return;
+        }
         Vec3 away = victim.position().subtract(from);
         if (away.lengthSqr() < 1.0E-4D) {
             away = new Vec3(1.0D, 0.0D, 0.0D);
@@ -262,18 +282,15 @@ public final class CrimsonSlash {
     /**
      * Applies one strike, clearing the hurt cooldown so the rate actually lands.
      *
-     * @param audible whether this one is allowed to play the victim's hurt sound; see
-     *                {@link #AUDIBLE_EVERY_TICKS}
+     * Always silent. The victim's hurt sound used to be let through occasionally, and it is the
+     * wrong noise for this: a grunt repeated ten times a second is not a flurry. The slash sound
+     * is played separately by {@link #slashSound}.
      */
-    public static void strike(ServerLevel server, LivingEntity victim, float damage, boolean audible) {
+    public static void strike(ServerLevel server, LivingEntity victim, float damage) {
         if (damage <= 0.0F || !victim.isAlive()) {
             return;
         }
         victim.invulnerableTime = 0;
-        if (audible) {
-            victim.hurt(server.damageSources().magic(), damage);
-            return;
-        }
         boolean wasSilent = victim.isSilent();
         victim.setSilent(true);
         try {
