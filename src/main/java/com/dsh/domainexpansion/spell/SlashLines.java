@@ -50,8 +50,8 @@ public final class SlashLines {
      * as a slash: a thin bar is a line, not a cut. Marks this size are small enough that a dozen
      * of them can cross the view at once and each still be legible as two crossing cuts.
      */
-    private static final float MIN_SIZE = 2.5F;
-    private static final float MAX_SIZE = 6.0F;
+    private static final float MIN_SIZE = 2.0F;
+    private static final float MAX_SIZE = 3.5F;
 
     private SlashLines() {
     }
