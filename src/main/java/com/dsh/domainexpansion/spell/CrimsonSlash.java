@@ -245,7 +245,13 @@ public final class CrimsonSlash {
     private static boolean warnedMissingDamageType;
 
     /**
-     * Sounds tried in order for a slash; the first that exists is used.
+     * Sounds tried in order for a slash; the first that resolves in the registry is used.
+     *
+     * This mod's own slash_custom is deliberately NOT in this list. It resolved here, and then
+     * played nothing, because the file behind it lives in a resource pack that was not enabled -
+     * the log said "Unable to play empty soundEvent". A registered event with no file is not
+     * detectable from the server, so it cannot be tested for, and being first in the list it
+     * swallowed every slash. It goes back in the moment the pack is confirmed to load.
      *
      * These belong to another mod the pack already has installed, and that is deliberate. Nothing
      * is copied into this jar and nothing is redistributed with it: the game has already loaded
@@ -260,7 +266,6 @@ public final class CrimsonSlash {
      * cannot crash.
      */
     private static final ResourceLocation[] SLASH_SOUND_CANDIDATES = {
-            ResourceLocation.fromNamespaceAndPath("domain_expansion", "slash_custom"),
             ResourceLocation.fromNamespaceAndPath("cursedfate", "shrine_slash"),
             ResourceLocation.fromNamespaceAndPath("cursedfate", "slash_hachi"),
             ResourceLocation.fromNamespaceAndPath("cursedfate", "domain/shrine_slash"),
