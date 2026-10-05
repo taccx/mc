@@ -178,19 +178,26 @@ public class DomainEntity extends Entity {
     /**
      * The lean each of the four torii gets, in degrees: x then z, one row per gate.
      *
-     * Fixed rather than random, so the same gate always leans the same way and the arrangement can
-     * be described, adjusted, or recognised in a screenshot. A shear of this many degrees over the
-     * gate's height - twelve degrees over thirteen blocks is about two and a half blocks of drift,
-     * which is plainly leaning without being fallen over.
+     * All zero now: the gates stand upright. They were leaning, between nine and fifteen degrees
+     * with a different lean on each, and were asked to be made straight instead - a leaning gate is
+     * harder to get right, and a shear of a few degrees over a wooden gate built of one-block
+     * columns reads as a build mistake rather than as a lean.
+     *
+     * The shear is left in the generator rather than deleted, so any of these can be given a lean
+     * again by changing a number here. They are also what gives each gate its own character now, so
+     * they are kept per gate rather than collapsed to one value.
+     *
+     * What still differs between the four is their facing: each is turned to look across the middle
+     * of the domain, so they are a ring rather than four copies.
      */
     /** Which way the ram skull faces, in degrees. */
     private static final float SKULL_YAW = 180.0F;
 
     private static final float[][] TORII_LEANS = {
-            {14.0F, -9.0F},
-            {-11.0F, 15.0F},
-            {9.0F, 12.0F},
-            {-15.0F, -7.0F},
+            {0.0F, 0.0F},
+            {0.0F, 0.0F},
+            {0.0F, 0.0F},
+            {0.0F, 0.0F},
     };
 
     /** Blocks of structure laid per tick, so a gate rises over about a second and a half. */
