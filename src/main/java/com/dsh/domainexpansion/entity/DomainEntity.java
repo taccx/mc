@@ -226,7 +226,7 @@ public class DomainEntity extends Entity {
      * Four, so nothing spawns in the player's face. At a third of a block wide, a line at arm's
      * length would fill the screen for its whole life.
      */
-    private static final double VIEW_MIN_DISTANCE = 4.0D;
+    private static final double VIEW_MIN_DISTANCE = 6.0D;
 
     /** Strikes landed, reported in the heartbeat so the rate can be checked. */
     private int slashHits;
