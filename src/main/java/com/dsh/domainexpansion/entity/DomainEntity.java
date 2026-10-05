@@ -847,9 +847,22 @@ public class DomainEntity extends Entity {
 
         SphereShape.Placement placement = SphereShape.classify(relX, relY, relZ, radiusBlocks());
         BlockState target = switch (placement) {
-            case FLOOR -> floorState;
+            // The aqua floor is REAL water, not a block painted to look like it.
+            //
+            // That was the whole problem with it: a shader pack decides what is water by looking
+            // for the vanilla water block, so a custom block with a water texture gets none of it -
+            // no waves, no refraction, none of the bright translucent look a shader gives real
+            // water. Nothing about the texture could have fixed that; the block has to actually be
+            // water.
+            //
+            // One block deep over the solid floor beneath, so it reads as a shallow flooded plain
+            // and a player standing in the domain stands on the floor with water around their feet
+            // rather than sinking through it.
+            case FLOOR -> kind == DomainKind.AQUA ? Blocks.WATER.defaultBlockState() : floorState;
             case SHELL -> shellState;
-            case FILLER -> airState;
+            // and the aqua interior is real air, so the shader sees a water surface with air above
+            // it rather than water under a solid ceiling
+            case FILLER -> kind == DomainKind.AQUA ? Blocks.AIR.defaultBlockState() : airState;
         };
 
         BlockState current = server.getBlockState(pos);
