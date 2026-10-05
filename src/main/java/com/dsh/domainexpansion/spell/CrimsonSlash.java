@@ -160,6 +160,22 @@ public final class CrimsonSlash {
     public static final int AMBIENT_SOUNDS_PER_SECOND = 20;
 
     /**
+     * Slash marks drawn on a victim, per second, each.
+     *
+     * Removed once, when the automatic attack was asked to be damage and blood only, and asked for
+     * again since: a victim being cut needs to look like it. Six a second each, which is enough to
+     * read as repeated strikes without burying the victim in marks.
+     *
+     * They share {@link SlashLines#MAX_LIVE_LINES} with the ambient layer, and that is the cap -
+     * once the sphere is full of marks, further ones are skipped and counted rather than drawn. The
+     * damage is untouched by that: the ceiling is on the drawing, not on the hitting.
+     */
+    public static final int MARKS_PER_VICTIM_PER_SECOND = 6;
+
+    /** How far above a victim's feet its marks are centred, as a fraction of its height. */
+    public static final double MARK_HEIGHT_FRACTION = 0.6D;
+
+    /**
      * Volume of an ambient slash, which is now the same as a victim's rather than quieter.
      *
      * At 0.65 of it the empty-domain layer was reported as too quiet to notice, which is fair: it

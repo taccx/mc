@@ -1289,6 +1289,20 @@ public class DomainEntity extends Entity {
                 slashHits++;
             }
 
+            // marks on the victim itself, so being cut is visible on the thing being cut. Capped by
+            // the same live ceiling as the ambient layer: past it they are skipped and counted, and
+            // the damage carries on regardless.
+            int marks = CrimsonSlash.allocationsThisTick(
+                    CrimsonSlash.MARKS_PER_VICTIM_PER_SECOND, lifeTicks);
+            Vec3 body = new Vec3(victim.getX(),
+                    victim.getY() + victim.getBbHeight() * CrimsonSlash.MARK_HEIGHT_FRACTION,
+                    victim.getZ());
+            for (int i = 0; i < marks; i++) {
+                if (!spawnSlashLine(server, body)) {
+                    break;
+                }
+            }
+
             // the flurry: a slash heard ten times a second, and a shove twice a second
             if (soundTick) {
                 CrimsonSlash.slashSound(server, victim);
