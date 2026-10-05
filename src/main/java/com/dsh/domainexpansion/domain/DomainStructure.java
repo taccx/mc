@@ -173,7 +173,7 @@ public final class DomainStructure {
         // --- cranium: five wide, four deep, three high, sitting on the floor
         for (int x = -1; x <= 1; x++) {
             for (int z = 0; z <= 2; z++) {
-                for (int y = 0; y <= 1; y++) {
+                for (int y = 0; y <= 2; y++) {
                     add(pieces, origin, yaw, 0.0D, 0.0D, x, y, z, bone);
                 }
             }
@@ -191,6 +191,13 @@ public final class DomainStructure {
 
         // --- the nasal opening, dark, at the very tip
         add(pieces, origin, yaw, 0.0D, 0.0D, 0, 1, 5, dark);
+
+        // a brow ridge across the top of the cranium. This is what stops the whole thing reading
+        // as a slab: a skull is tall at the back and long and low at the front, and with the
+        // cranium only as tall as the snout the two merged into one flat block
+        for (int x = -1; x <= 1; x++) {
+            add(pieces, origin, yaw, 0.0D, 0.0D, x, 3, 2, bone);
+        }
 
         // --- eye sockets, recessed into the cranium's front corners, with a brow above each
         for (int side = -1; side <= 1; side += 2) {
