@@ -667,6 +667,13 @@ public class DomainEntity extends Entity {
             clearOwnCooldown(server);
         }
 
+        // Slow on everything inside, for BOTH kinds of domain. It used to sit in the crimson
+        // slash step, so an aqua domain had no drag at all - which is the other half of what was
+        // asked for here.
+        if (buildComplete && lifeTicks % 5 == 0) {
+            slowEverythingInside(server);
+        }
+
         if (lifeTicks % PERIODIC_INTERVAL == 0) {
             maintainBarrier(server);
             if (kind.hasSupportSpells()) {
@@ -888,6 +895,27 @@ public class DomainEntity extends Entity {
 
         if (kind == DomainKind.AQUA && placement == SphereShape.Placement.FLOOR) {
             layAquaBed(server, pos, relX, relZ);
+        }
+    }
+
+    /**
+     * Slows everything inside, whatever kind of domain this is.
+     *
+     * Was part of the crimson slash step, so an aqua domain dragged nothing - asked for here as an
+     * effect of its own, which is what it always was. Refreshed every five ticks rather than every
+     * tick: applyDrag only writes when the effect is nearly out, so this is the rate it checks at,
+     * not the rate it applies at.
+     */
+    private void slowEverythingInside(ServerLevel server) {
+        Vec3 c = center();
+        AABB box = new AABB(c, c).inflate(radius());
+        for (LivingEntity inside : server.getEntitiesOfClass(LivingEntity.class, box)) {
+            if (inside.getUUID().equals(ownerUuid) || !inside.isAlive()) {
+                continue;
+            }
+            if (contains(inside)) {
+                CrimsonSlash.applyDrag(inside);
+            }
         }
     }
 

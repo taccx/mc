@@ -170,7 +170,7 @@ public final class CrimsonSlash {
      * once the sphere is full of marks, further ones are skipped and counted rather than drawn. The
      * damage is untouched by that: the ceiling is on the drawing, not on the hitting.
      */
-    public static final int MARKS_PER_VICTIM_PER_SECOND = 6;
+    public static final int MARKS_PER_VICTIM_PER_SECOND = 12;
 
     /** How far above a victim's feet its marks are centred, as a fraction of its height. */
     public static final double MARK_HEIGHT_FRACTION = 0.6D;
