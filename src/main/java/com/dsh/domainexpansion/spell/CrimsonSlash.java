@@ -355,17 +355,39 @@ public final class CrimsonSlash {
         if (damage <= 0.0F || !victim.isAlive()) {
             return;
         }
+        float amount = damage * TRUE_DAMAGE_FRACTION;
+        float remaining = victim.getHealth() - amount;
+
+        if (remaining <= 0.0F) {
+            // Let the game handle the death, so the drops, the death message and the removal all
+            // happen as they should. die() runs the whole death path directly rather than through
+            // hurt(), which is the point.
+            victim.setHealth(0.0F);
+            victim.die(trueSlash(server));
+            return;
+        }
+
+        // Health is written directly rather than going through hurt().
+        //
+        // This is the second attempt at true damage and the reason for it. The first used a custom
+        // damage type listed in every vanilla bypass tag - armour, enchantments, effects, resistance,
+        // invulnerability, shields - and that covers everything VANILLA does. What it does not cover
+        // is other mods: most modded damage reduction is not a tag at all, it is a handler on
+        // LivingHurtEvent or LivingDamageEvent, and no damage type can reach those. A pack with
+        // enchantments called things like magic-breaking and adaptation has several, and enumerating
+        // every mod's reduction is a losing game - the list can never be finished.
+        //
+        // Writing the health skips the entire pipeline those handlers hang off, so there is nothing
+        // left to reduce it. The cost is that a victim gets no damage flash and no hurt reaction of
+        // its own - but blood, sound and the shove are all applied here anyway, so the effect still
+        // reads. The damage type is kept for the death path, where a source is still needed.
+        victim.setHealth(remaining);
         victim.invulnerableTime = 0;
         if (victim.getAbsorptionAmount() > 0.0F) {
             victim.setAbsorptionAmount(0.0F);
         }
-        boolean wasSilent = victim.isSilent();
-        victim.setSilent(true);
-        try {
-            victim.hurt(trueSlash(server), damage * TRUE_DAMAGE_FRACTION);
-        } finally {
-            victim.setSilent(wasSilent);
-        }
+        // so the client redraws the health bar rather than only finding out when it next syncs
+        victim.hurtMarked = true;
     }
 
     /**
