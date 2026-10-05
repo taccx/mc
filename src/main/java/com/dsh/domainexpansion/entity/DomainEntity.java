@@ -1015,20 +1015,11 @@ public class DomainEntity extends Entity {
             slashLineSkipped++;
             return false;
         }
-        slashLines.add(SlashLines.spawn(server, at, distanceFromViewer(at)));
+        slashLines.add(SlashLines.spawn(server, at));
         slashLineSpawns++;
         return true;
     }
 
-    /** How far a point is from the eye the domain is being drawn for, in blocks. */
-    private double distanceFromViewer(Vec3 at) {
-        Entity owner = ownerUuid != null && level() instanceof ServerLevel server
-                ? server.getEntity(ownerUuid) : null;
-        if (owner instanceof LivingEntity caster) {
-            return caster.getEyePosition().distanceTo(at);
-        }
-        return center().distanceTo(at);
-    }
 
     /**
      * A point inside the sphere, biased into whatever the caster is looking at.

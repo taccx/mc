@@ -30,22 +30,25 @@ public class SlashLineEntity extends Entity {
     private static final EntityDataAccessor<Integer> DATA_VARIANT =
             SynchedEntityData.defineId(SlashLineEntity.class, EntityDataSerializers.INT);
 
-    /**
-     * How big the mark is, in blocks, on both axes.
-     *
-     * One number rather than a length and a thickness, because the mark is square now. It was a
-     * long strip and it was tuned several times without ever reading as a slash - a thin bar is a
-     * line however hard its edge - so it is drawn as what it is: two crossing cuts, which need a
-     * square to live in rather than a strip.
-     */
-    private static final EntityDataAccessor<Float> DATA_SIZE =
+    /** How long the line is, in blocks. Drives the width of the quad. */
+    private static final EntityDataAccessor<Float> DATA_LENGTH =
             SynchedEntityData.defineId(SlashLineEntity.class, EntityDataSerializers.FLOAT);
 
     /**
-     * How long a mark lives. Eight ticks, which at a quarter of a second is long enough to be
+     * How long a line lives. Eight ticks, which at a quarter of a second is long enough to be
      * read as a slash crossing the view and short enough that a crowd of them does not linger.
      */
     public static final int LIFETIME_TICKS = 8;
+
+    /**
+     * Thickness of the line, in blocks.
+     *
+     * 1.5, which is roughly seven times the 0.22 it started at. Thin lines were asked to be
+     * thicker by five to ten times once they were seen in play: at 0.22 a line is a hairline
+     * that disappears against a bright background, and the reference the effect is following has
+     * streaks with real weight to them.
+     */
+    private static final float THICKNESS = 1.0F;
 
     public SlashLineEntity(EntityType<? extends SlashLineEntity> type, Level level) {
         super(type, level);
@@ -62,7 +65,7 @@ public class SlashLineEntity extends Entity {
     @Override
     protected void defineSynchedData() {
         this.entityData.define(DATA_VARIANT, 0);
-        this.entityData.define(DATA_SIZE, 8.0F);
+        this.entityData.define(DATA_LENGTH, 8.0F);
     }
 
     public int variant() {
@@ -73,19 +76,19 @@ public class SlashLineEntity extends Entity {
         this.entityData.set(DATA_VARIANT, variant);
     }
 
-    public float size() {
-        return this.entityData.get(DATA_SIZE);
+    public float length() {
+        return this.entityData.get(DATA_LENGTH);
     }
 
-    public void setSize(float size) {
-        this.entityData.set(DATA_SIZE, size);
-        // the bounding box is the mark, so the client knows how big to draw it without extra data
+    public void setLength(float length) {
+        this.entityData.set(DATA_LENGTH, length);
+        // the bounding box is the line, so the client knows how big to draw it without extra data
         this.refreshDimensions();
     }
 
     @Override
     public EntityDimensions getDimensions(Pose pose) {
-        return EntityDimensions.scalable(size(), size());
+        return EntityDimensions.scalable(length(), THICKNESS);
     }
 
     @Override

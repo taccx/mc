@@ -43,53 +43,31 @@ public final class SlashLines {
     private static final float RED_CHANCE = 0.35F;
 
     /**
-     * Mark size per block of distance from the eye.
+     * Line lengths, in blocks.
      *
-     * 0.28, which holds a mark at about a hundred and twenty pixels on a 1500 pixel wide screen at
-     * the 121 degree horizontal field of view a 90 degree setting gives. The arithmetic: an object
-     * of size s at distance d covers s/d/tan(hfov/2) of the half screen.
-     *
-     * Sized from the distance rather than fixed, and that is the whole answer to two failed
-     * attempts. A fixed size cannot work across a sphere of radius thirty: the reference's own
-     * value of 0.64 blocks is invisible at thirty blocks away, and anything big enough to see out
-     * there is two fifths of the screen up close, which is what made earlier builds read as giant
-     * arcs. Scaling with distance keeps every mark the same size on screen at every distance.
-     *
-     * The field of view is the one assumption, and it is a client setting the server is never
-     * told. A player on a much wider setting sees the marks somewhat smaller than intended, not
-     * wrong - which is why this is a ratio rather than a table of distances.
+     * Lengthened along with the thickness. A 1.5 block thick line only four blocks long is a
+     * stub, not a slash - at this weight the lines need to be long enough to read as streaks
+     * crossing the sphere, which is also what the reference does.
      */
-    private static final float SIZE_PER_DISTANCE = 0.28F;
-
-    /**
-     * Bounds on the result of that, in blocks.
-     *
-     * The lower bound keeps a very close mark from shrinking to nothing; the upper stops a mark
-     * near the far wall growing large enough to cut through it.
-     */
-    private static final float MIN_SIZE = 0.5F;
-    private static final float MAX_SIZE = 5.0F;
+    private static final float MIN_LENGTH = 20.0F;
+    private static final float MAX_LENGTH = 45.0F;
 
     private SlashLines() {
     }
 
     /**
-     * Starts one mark at a position, sized for how far it is from the eye that will see it.
+     * Starts one line at a position, pointing in a random direction.
      *
      * The rotation is set on the entity because that is what the renderer orients the quad by -
-     * yaw and pitch, exactly as an arrow would be aimed. Pitch is kept shallow: a mark angled
+     * yaw and pitch, exactly as an arrow would be aimed. Pitch is kept shallow: a line angled
      * straight up or down is seen edge-on and all but disappears.
-     *
-     * @param distanceFromEye how far the spawn point is from the viewer, in blocks; see
-     *                        {@link #SIZE_PER_DISTANCE}
      */
-    public static SlashLineEntity spawn(ServerLevel server, Vec3 origin, double distanceFromEye) {
+    public static SlashLineEntity spawn(ServerLevel server, Vec3 origin) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
 
         SlashLineEntity line = new SlashLineEntity(server);
         line.setVariant(random.nextFloat() < RED_CHANCE ? RED : WHITE);
-        line.setSize(MIN_SIZE + Math.min(MAX_SIZE - MIN_SIZE,
-                Math.max(0.0F, (float) (distanceFromEye * SIZE_PER_DISTANCE) - MIN_SIZE)));
+        line.setLength(MIN_LENGTH + random.nextFloat() * (MAX_LENGTH - MIN_LENGTH));
         line.moveTo(origin.x, origin.y, origin.z);
         line.setYRot(random.nextFloat() * 360.0F);
         line.setXRot((random.nextFloat() - 0.5F) * 70.0F);

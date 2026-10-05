@@ -148,7 +148,7 @@ public final class CrimsonSlash {
      * and the slash itself is the sound, because ten hurt sounds a second is a generic grunt
      * repeated, where ten whooshes is a flurry.
      */
-    public static final int SOUND_EVERY_TICKS = 2;
+    public static final int SOUND_EVERY_TICKS = 1;
 
     /**
      * How often a victim is shoved, in ticks. Ten, so twice a second.

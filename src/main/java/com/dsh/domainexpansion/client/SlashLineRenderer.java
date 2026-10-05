@@ -39,22 +39,17 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
                     "domain_expansion", "textures/entity/slash_line/slash_line_glow.png");
 
     /** How much wider than the line the halo is drawn. */
-    private static final float GLOW_SCALE = 1.02F;
+    private static final float GLOW_SCALE = 1.08F;
 
     /**
      * The halo's opacity.
      *
-     * 1.02 and 0.07 now, against 1.55 and 0.28 at the widest. The wider, stronger version was
-     * added for the edge glow that was asked for, and it was most of what made the mark look
-     * blurry: a soft band wider than the mark itself, over the mark, reads as a smudge rather than
-     * as a glowing edge.
-     *
-     * Where this ends up is a glow radius of zero, which is not a guess. The professional slash
-     * workflow this now follows sets its glow radius to zero and says why: the light diffusing is
-     * exactly the blurry look it does not want. The halo here is kept as a hairline rather than
-     * removed, so the mark still sits in front of the wall instead of being cut out of it.
+     * 1.08 and 0.16 now, against 1.55 and 0.28. The wider, stronger version was added for the
+     * edge glow that was asked for, and it was most of what made the line look blurry: a soft
+     * band wider than the line itself, over the line, reads as a smudge rather than as a glowing
+     * edge. This is a rim tight against the line instead.
      */
-    private static final float GLOW_ALPHA = 0.07F;
+    private static final float GLOW_ALPHA = 0.16F;
 
     /**
      * How far the line is pushed in front of its own halo, in blocks.
@@ -65,15 +60,6 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
      * read as an offset, large enough to settle it.
      */
     private static final float CORE_OFFSET = 0.03F;
-
-    /**
-     * Frames in the mark's sprite sheet.
-     *
-     * Eight, one per tick of the mark's life, taken from the reference: its slash particle
-     * advances one frame of an eight frame sheet per tick and that sweep is most of what makes a
-     * cut read as having happened rather than as a decal sitting there.
-     */
-    private static final int FRAMES = 8;
 
     public SlashLineRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -87,11 +73,12 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
         // the line sweeps out and then fades: full length by a third of the way through, gone by
         // the end. Without this a line simply appears and vanishes, which reads as a flicker.
         float grow = Math.min(1.0F, progress * 3.0F);
-        // cubed rather than squared, so the mark holds most of its strength for most of its life
-        // and drops away at the end instead of fading out from the moment it appears.
+        // cubed rather than squared, so the line holds most of its strength for most of its life
+        // and drops away at the end instead of fading out from the moment it appears. Reported as
+        // the lines looking faint, and a curve that is already at half opacity by the midpoint was
+        // part of that.
         float fade = 1.0F - progress * progress * progress;
-        // square: the mark is two crossing cuts, so it needs a square to live in
-        float half = entity.size() * 0.5F * grow;
+        float half = entity.length() * 0.5F * grow;
         float alpha = Math.max(0.0F, fade);
         if (alpha <= 0.01F) {
             return;
@@ -103,40 +90,33 @@ public class SlashLineRenderer extends EntityRenderer<SlashLineEntity> {
         // a fixed roll per entity, so lines crossing the view are not all edge-on
         poseStack.mulPose(Axis.ZP.rotationDegrees((entity.getId() * 37) % 360));
 
+        float thickness = entity.getDimensions(entity.getPose()).height * 0.5F;
         boolean red = entity.variant() == 1;
 
-        // the cut sweeps in over the first half of the sheet and holds for the second, one frame
-        // per tick, which is what the reference does with its eight frame particle sprite
-        int frame = Math.min(FRAMES - 1, (int) (entity.tickCount + partialTick));
-        float vMin = (float) frame / FRAMES;
-        float vMax = (float) (frame + 1) / FRAMES;
-
-        // halo first, so the mark draws over it. The halo is a single frame strip, not a sheet,
-        // so it always spans the full texture.
+        // halo first, so the line draws over it
         quad(buffers.getBuffer(SlashRenderTypes.of(GLOW)),
-                poseStack, half * GLOW_SCALE, half * GLOW_SCALE,
+                poseStack, half * 1.04F, thickness * GLOW_SCALE,
                 red ? 1.0F : 0.82F, red ? 0.18F : 0.90F, red ? 0.24F : 1.0F,
-                alpha * GLOW_ALPHA, 0.0F, 0.0F, 1.0F);
+                alpha * GLOW_ALPHA, 0.0F);
 
-        // then the mark, pushed forward so the two cannot z-fight
+        // then the line, pushed forward so the two cannot z-fight
         quad(buffers.getBuffer(SlashRenderTypes.of(red ? RED : WHITE)),
-                poseStack, half, half, 1.0F, 1.0F, 1.0F, alpha, CORE_OFFSET, vMin, vMax);
+                poseStack, half, thickness, 1.0F, 1.0F, 1.0F, alpha, CORE_OFFSET);
 
         poseStack.popPose();
         super.render(entity, entityYaw, partialTick, poseStack, buffers, packedLight);
     }
 
-    /** One quad, centred, spanning the given slice of the texture's height. */
+    /** One quad, centred, spanning the full texture. */
     private static void quad(VertexConsumer consumer, PoseStack poseStack,
                              float halfLength, float halfThickness,
-                             float red, float green, float blue, float alpha, float z,
-                             float vMin, float vMax) {
+                             float red, float green, float blue, float alpha, float z) {
         Matrix4f matrix = poseStack.last().pose();
         Matrix3f normal = poseStack.last().normal();
-        vertex(consumer, matrix, normal, -halfLength, halfThickness, 0.0F, vMin, red, green, blue, alpha, z);
-        vertex(consumer, matrix, normal, halfLength, halfThickness, 1.0F, vMin, red, green, blue, alpha, z);
-        vertex(consumer, matrix, normal, halfLength, -halfThickness, 1.0F, vMax, red, green, blue, alpha, z);
-        vertex(consumer, matrix, normal, -halfLength, -halfThickness, 0.0F, vMax, red, green, blue, alpha, z);
+        vertex(consumer, matrix, normal, -halfLength, halfThickness, 0.0F, 0.0F, red, green, blue, alpha, z);
+        vertex(consumer, matrix, normal, halfLength, halfThickness, 1.0F, 0.0F, red, green, blue, alpha, z);
+        vertex(consumer, matrix, normal, halfLength, -halfThickness, 1.0F, 1.0F, red, green, blue, alpha, z);
+        vertex(consumer, matrix, normal, -halfLength, -halfThickness, 0.0F, 1.0F, red, green, blue, alpha, z);
     }
 
     private static void vertex(VertexConsumer consumer, Matrix4f matrix, Matrix3f normal,
