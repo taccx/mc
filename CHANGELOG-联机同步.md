@@ -9,7 +9,7 @@
 **只需要模组 jar 文件这一个东西：**
 
 ```
-domain_expansion-1.0.0.jar
+domain_expansion-1.3.1.jar
 ```
 
 **放进**：`.minecraft/versions/<版本名>/mods/`
@@ -134,7 +134,7 @@ domain_expansion-1.0.0.jar
 | `v1.3.0` | 10-05 | **猩红领域**、真伤改标签方案、用户自建鸟居与绞架、真水地板 |
 | **`v1.3.1`** | **10-06** | **真伤改为直接改血量**、伤害 20 倍、360° 斩痕、Iron's 血系音效、改名猩红血狱 |
 
-**下载**：`dist/domain_expansion-1.0.0.jar`（SHA256 见 `dist/SHA256SUMS.txt`）
+**下载**：`dist/domain_expansion-1.3.1.jar`（SHA256 见 `dist/SHA256SUMS.txt`）
 
 ---
 
